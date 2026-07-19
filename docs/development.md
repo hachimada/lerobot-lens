@@ -66,7 +66,9 @@ cd frontend && npx playwright install chromium
 
 ## Continuous integration
 
-The `CI` workflow runs on pushes to `main` and through manual dispatch. It installs locked backend and frontend dependencies, runs `make check`, uploads backend and frontend coverage to Codecov using OIDC, and runs the bundled demo E2E test in Chromium.
+The `CI` workflow runs on pushes to `main` and through manual dispatch. It installs locked backend and frontend dependencies, runs `make check`, uploads backend and frontend coverage to Codecov, and runs the bundled demo E2E test in Chromium.
+
+Before running CI, add the repository upload token from Codecov as a GitHub Actions repository secret named `CODECOV_TOKEN`.
 
 ## Project structure
 
