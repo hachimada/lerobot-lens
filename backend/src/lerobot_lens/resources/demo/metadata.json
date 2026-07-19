@@ -1,0 +1,30 @@
+{
+  "source": "hachimada/so101_pick_place_red_1",
+  "source_episode": 0,
+  "license": "Apache-2.0",
+  "task": "pickup red object and place it to black box",
+  "fps": 30.0,
+  "length": 193,
+  "state_names": [
+    "shoulder_pan.pos",
+    "shoulder_lift.pos",
+    "elbow_flex.pos",
+    "wrist_flex.pos",
+    "wrist_roll.pos",
+    "gripper.pos"
+  ],
+  "action_names": [
+    "shoulder_pan.pos",
+    "shoulder_lift.pos",
+    "elbow_flex.pos",
+    "wrist_flex.pos",
+    "wrist_roll.pos",
+    "gripper.pos"
+  ],
+  "camera_key": "observation.images.front",
+  "angle_unit": "degrees",
+  "modifications": [
+    "Selected source episode 0 only",
+    "Converted the episode video segment to JPEG frames for local demo playback"
+  ]
+}
