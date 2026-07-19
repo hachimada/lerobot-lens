@@ -12,3 +12,4 @@ frontend/coverage/
 frontend/playwright-report/
 frontend/test-results/
 backend/.cache/
+backend/coverage.xml

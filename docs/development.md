@@ -64,6 +64,10 @@ cd frontend && npx playwright install chromium
 
 `make test-e2e` builds the frontend and automatically starts the single-port setup served by FastAPI. It does not use external data or a GPU.
 
+## Continuous integration
+
+The `CI` workflow runs on pushes to `main` and through manual dispatch. It installs locked backend and frontend dependencies, runs `make check`, uploads backend and frontend coverage to Codecov using OIDC, and runs the bundled demo E2E test in Chromium.
+
 ## Project structure
 
 ```text

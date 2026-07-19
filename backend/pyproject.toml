@@ -37,6 +37,7 @@ addopts = [
   "--cov=lerobot_lens",
   "--cov-branch",
   "--cov-report=term-missing",
+  "--cov-report=xml:coverage.xml",
   "--cov-fail-under=95",
 ]
 
