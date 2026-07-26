@@ -43,18 +43,25 @@ export function apiErrorMessage(body: unknown, status: number, statusText: strin
 
 export const api = {
   getRobots: () => request<BundledRobot[]>('/api/robots'),
-  createSession: (payload: SessionCreate) =>
-    request<SessionSummary>('/api/sessions', { method: 'POST', body: JSON.stringify(payload) }),
-  getSession: (id: string) => request<SessionSummary>(`/api/sessions/${id}`),
-  getEpisodes: (id: string) => request<Episode[]>(`/api/sessions/${id}/episodes`),
+  createSession: (payload: SessionCreate, signal?: AbortSignal) =>
+    request<SessionSummary>('/api/sessions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      ...(signal ? { signal } : {}),
+    }),
+  getSession: (id: string, signal?: AbortSignal) =>
+    request<SessionSummary>(`/api/sessions/${id}`, signal ? { signal } : undefined),
+  getEpisodes: (id: string, signal?: AbortSignal) =>
+    request<Episode[]>(`/api/sessions/${id}/episodes`, signal ? { signal } : undefined),
   getEpisodeActions: (id: string, episode: number, signal?: AbortSignal) =>
     request<EpisodeActions>(`/api/sessions/${id}/episodes/${episode}/actions`, { signal }),
   getFrame: (id: string, episode: number, frame: number, signal?: AbortSignal) =>
     request<FrameData>(`/api/sessions/${id}/episodes/${episode}/frames/${frame}`, { signal }),
-  infer: (id: string, episode: number, frame: number) =>
+  infer: (id: string, episode: number, frame: number, signal?: AbortSignal) =>
     request<InferenceResult>(`/api/sessions/${id}/infer`, {
       method: 'POST',
       body: JSON.stringify({ episode, frame }),
+      ...(signal ? { signal } : {}),
     }),
   urdfUrl: (id: string) => `/api/sessions/${id}/urdf`,
 }

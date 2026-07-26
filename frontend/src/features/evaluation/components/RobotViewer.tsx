@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import URDFLoader from 'urdf-loader'
 
 import { convertJointValue, resolveJointTargets } from '../robotJoints'
+import styles from './RobotViewer.module.css'
 
 interface URDFRobot extends THREE.Object3D {
   joints: Record<string, { setJointValue: (value: number) => void; jointType: string }>
@@ -160,18 +161,20 @@ export function RobotViewer({ url, values, jointNames, mapping, angleUnit, mode 
   }, [values, jointNames, mapping, angleUnit, loadedJoints])
 
   return (
-    <div className="viewer" ref={host}>
-      <div className={`viewer-mode ${mode}`}>
+    <div className={styles.viewer} ref={host}>
+      <div
+        className={`${styles.viewerMode} ${mode === 'inference' ? styles.inference : ''}`.trim()}
+      >
         <span /> {mode === 'inference' ? 'POLICY OUTPUT' : 'DATASET ACTION'}
       </div>
-      <div className="viewer-hint">Drag to orbit · Scroll to zoom</div>
+      <div className={styles.viewerHint}>Drag to orbit · Scroll to zoom</div>
       {mappingError && (
-        <div className="viewer-error">
+        <div className={styles.viewerError}>
           <strong>JOINT MAPPING ERROR</strong>
           <span>{mappingError}</span>
         </div>
       )}
-      <div className="axis-mark">
+      <div className={styles.axisMark}>
         <i />Z
       </div>
     </div>

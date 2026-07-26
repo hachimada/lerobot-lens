@@ -43,7 +43,7 @@ function deferred<T>() {
 
 async function openDemo(user = userEvent.setup()) {
   await user.click(screen.getByRole('button', { name: 'Explore with demo data' }))
-  await screen.findByText('org/data')
+  expect(await screen.findByRole('textbox', { name: 'DATASET' })).toHaveValue('org/data')
   return user
 }
 
@@ -69,6 +69,22 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe('App', () => {
+  it('shows onboarding with the primary and advanced workspace settings visible', () => {
+    render(<App />)
+
+    expect(screen.getByRole('heading', { level: 1, name: 'LeRobot Lens' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'LeRobot DATASET' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'POLICY by LeRobot' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: /ROBOT/ })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'DEVICE' })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: /JOINT MAP/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Explore with demo data' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open LeRobot Lens on GitHub' })).toHaveAttribute(
+      'href',
+      'https://github.com/hachimada/lerobot-lens',
+    )
+  })
+
   it('loads a workspace only after installing its episode state', async () => {
     const nextEpisodes =
       deferred<{ index: number; length: number; duration: number; task: string }[]>()
@@ -92,7 +108,7 @@ describe('App', () => {
       expect(mockedApi.getFrame).toHaveBeenCalledWith('old-session', 8, 0, expect.any(AbortSignal)),
     )
 
-    await user.click(screen.getByRole('button', { name: 'LeRobot Lens' }))
+    await user.click(screen.getByRole('button', { name: 'Return to workspace setup' }))
     await user.click(screen.getByRole('button', { name: 'Explore with demo data' }))
     await waitFor(() => expect(mockedApi.createSession).toHaveBeenCalledTimes(2))
     expect(mockedApi.getFrame).not.toHaveBeenCalledWith(
@@ -119,12 +135,80 @@ describe('App', () => {
     )
   })
 
+  it('applies edited header settings and resets state for the replacement workspace', async () => {
+    mockedApi.createSession
+      .mockResolvedValueOnce({ ...session, id: 'old-session' })
+      .mockResolvedValueOnce({
+        ...session,
+        id: 'new-session',
+        dataset: 'org/new-data',
+        policy: 'org/new-policy',
+        device: 'mps',
+      })
+    const user = userEvent.setup()
+    render(<App />)
+    await openDemo(user)
+    await user.click(screen.getByRole('button', { name: /Infer action chunk/ }))
+    expect(await screen.findByText('2 actions')).toBeInTheDocument()
+
+    const datasetInput = screen.getByRole('textbox', { name: 'DATASET' })
+    const policyInput = screen.getByRole('textbox', { name: 'POLICY' })
+    await user.clear(datasetInput)
+    await user.type(datasetInput, 'org/new-data')
+    await user.clear(policyInput)
+    await user.type(policyInput, 'org/new-policy')
+    await user.click(screen.getByRole('button', { name: 'Advanced configuration' }))
+    await user.selectOptions(screen.getByRole('combobox', { name: 'DEVICE' }), 'mps')
+    await user.click(screen.getByRole('button', { name: 'Apply workspace settings' }))
+
+    await waitFor(() =>
+      expect(mockedApi.createSession).toHaveBeenLastCalledWith(
+        {
+          dataset: 'org/new-data',
+          policy: 'org/new-policy',
+          urdf: null,
+          device: 'mps',
+          joint_mapping: {},
+          dataset_angle_unit: null,
+          demo: false,
+        },
+        expect.any(AbortSignal),
+      ),
+    )
+    expect(await screen.findByRole('textbox', { name: 'DATASET' })).toHaveValue('org/new-data')
+    expect(screen.getByText('No inference yet')).toBeInTheDocument()
+    expect(mockedApi.getFrame).toHaveBeenCalledWith('new-session', 0, 0, expect.any(AbortSignal))
+  })
+
+  it('keeps the active workspace when edited header settings fail to load', async () => {
+    mockedApi.createSession
+      .mockResolvedValueOnce({ ...session, id: 'old-session' })
+      .mockRejectedValueOnce(new Error('replacement failed'))
+    const user = userEvent.setup()
+    render(<App />)
+    await openDemo(user)
+
+    const datasetInput = screen.getByRole('textbox', { name: 'DATASET' })
+    await user.clear(datasetInput)
+    await user.type(datasetInput, 'org/broken-data')
+    await user.click(screen.getByRole('button', { name: 'Apply workspace settings' }))
+
+    expect(await screen.findByText('replacement failed')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Camera stream' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Infer action chunk/ }))
+    await waitFor(() =>
+      expect(mockedApi.infer).toHaveBeenCalledWith('old-session', 0, 0, expect.any(AbortSignal)),
+    )
+  })
+
   it('runs inference from the selected observation', async () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(screen.getByRole('button', { name: 'Explore with demo data' }))
     await user.click(await screen.findByRole('button', { name: /Infer action chunk/ }))
-    await waitFor(() => expect(mockedApi.infer).toHaveBeenCalledWith('session', 0, 0))
+    await waitFor(() =>
+      expect(mockedApi.infer).toHaveBeenCalledWith('session', 0, 0, expect.any(AbortSignal)),
+    )
     expect(await screen.findByText('2 actions')).toBeInTheDocument()
   })
 
@@ -144,11 +228,11 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Explore with demo data' }))
     await act(async () => Promise.resolve())
-    expect(screen.getByRole('button', { name: /Loading artifacts/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Open workspace' })).toBeDisabled()
     await act(async () => vi.advanceTimersByTimeAsync(750))
 
-    expect(mockedApi.getSession).toHaveBeenCalledWith('session')
-    expect(screen.getByText('org/data')).toBeInTheDocument()
+    expect(mockedApi.getSession).toHaveBeenCalledWith('session', expect.any(AbortSignal))
+    expect(screen.getByRole('textbox', { name: 'DATASET' })).toHaveValue('org/data')
   })
 
   it('returns to setup when a polled session reports a background error', async () => {
@@ -166,7 +250,7 @@ describe('App', () => {
     await act(async () => vi.advanceTimersByTimeAsync(750))
 
     expect(screen.getByText('policy load failed')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Load workspace/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open workspace' })).toBeInTheDocument()
   })
 
   it.each([
@@ -197,7 +281,7 @@ describe('App', () => {
     expect(await screen.findByText(/(frame|actions) failed/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Infer action chunk/ }))
     expect(await screen.findByText('infer failed')).toBeInTheDocument()
-    expect(screen.getByText('org/data')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'DATASET' })).toHaveValue('org/data')
   })
 
   it('ignores aborted frame and action responses after an episode switch', async () => {
@@ -249,6 +333,13 @@ describe('App', () => {
     const user = userEvent.setup()
     render(<App />)
     await openDemo(user)
+    await user.click(screen.getByRole('button', { name: 'Next frame' }))
+    await waitFor(() =>
+      expect(mockedApi.getFrame).toHaveBeenCalledWith('session', 0, 1, expect.any(AbortSignal)),
+    )
+    await user.click(screen.getByRole('button', { name: 'Previous frame' }))
+    await user.click(screen.getByRole('button', { name: 'Next frame' }))
+    await user.click(screen.getByRole('button', { name: 'Restart' }))
     await user.click(screen.getByRole('button', { name: '2×' }))
     vi.useFakeTimers()
     fireEvent.click(screen.getByRole('button', { name: 'Play' }))
@@ -323,7 +414,7 @@ describe('App', () => {
     const user = userEvent.setup()
     render(<App />)
     await openDemo(user)
-    await user.click(screen.getByRole('button', { name: 'LeRobot Lens' }))
-    expect(screen.getByRole('button', { name: /Load workspace/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Return to workspace setup' }))
+    expect(screen.getByRole('button', { name: 'Open workspace' })).toBeInTheDocument()
   })
 })

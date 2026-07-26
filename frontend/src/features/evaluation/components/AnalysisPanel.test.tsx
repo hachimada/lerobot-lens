@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { frame, inference, session } from '../../../test/fixtures'
 import { AnalysisPanel } from './AnalysisPanel'
+import styles from './AnalysisPanel.module.css'
 
 function renderPanel(result = inference) {
   const callbacks = {
@@ -61,7 +62,7 @@ describe('AnalysisPanel', () => {
     const user = userEvent.setup()
     const callbacks = renderPanel()
     expect(screen.getByText('2 actions')).toBeInTheDocument()
-    expect(screen.getByText('+0.020')).toHaveClass('good')
+    expect(screen.getByText('+0.020')).toHaveClass(styles.good)
 
     await user.click(screen.getByRole('button', { name: 'Restart chunk' }))
     await user.click(screen.getByRole('button', { name: /Replay/ }))

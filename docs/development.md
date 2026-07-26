@@ -48,7 +48,7 @@ Individual targets are also available:
 | --- | --- |
 | `make format` | Format backend and frontend sources |
 | `make format-check` | Check formatting without modifying files |
-| `make lint` | Run Ruff and ESLint |
+| `make lint` | Run Ruff, ESLint, and Stylelint |
 | `make typecheck` | Run mypy |
 | `make test` | Run backend and frontend unit tests |
 | `make test-e2e` | Run the Chromium E2E smoke test with the bundled demo |

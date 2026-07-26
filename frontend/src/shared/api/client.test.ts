@@ -37,7 +37,9 @@ describe('apiErrorMessage', () => {
 
 describe('api client', () => {
   it('sends JSON requests and returns parsed responses', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 'session' }))
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(() => Promise.resolve(jsonResponse({ id: 'session' })))
     vi.stubGlobal('fetch', fetchMock)
 
     const payload = {
@@ -51,9 +53,18 @@ describe('api client', () => {
     } as const
     await api.createSession(payload)
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/sessions', {
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/sessions', {
       method: 'POST',
       body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const controller = new AbortController()
+    await api.createSession(payload, controller.signal)
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/sessions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+      signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
     })
   })
@@ -64,11 +75,11 @@ describe('api client', () => {
     const controller = new AbortController()
 
     await api.getRobots()
-    await api.getSession('s')
-    await api.getEpisodes('s')
+    await api.getSession('s', controller.signal)
+    await api.getEpisodes('s', controller.signal)
     await api.getEpisodeActions('s', 2, controller.signal)
     await api.getFrame('s', 2, 3, controller.signal)
-    await api.infer('s', 2, 3)
+    await api.infer('s', 2, 3, controller.signal)
 
     expect(fetchMock.mock.calls.map(([path]) => path)).toEqual([
       '/api/robots',
@@ -78,11 +89,14 @@ describe('api client', () => {
       '/api/sessions/s/episodes/2/frames/3',
       '/api/sessions/s/infer',
     ])
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ signal: controller.signal })
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({ signal: controller.signal })
     expect(fetchMock.mock.calls[3]?.[1]).toMatchObject({ signal: controller.signal })
     expect(fetchMock.mock.calls[4]?.[1]).toMatchObject({ signal: controller.signal })
     expect(fetchMock.mock.calls[5]?.[1]).toMatchObject({
       method: 'POST',
       body: JSON.stringify({ episode: 2, frame: 3 }),
+      signal: controller.signal,
     })
     expect(api.urdfUrl('s')).toBe('/api/sessions/s/urdf')
   })

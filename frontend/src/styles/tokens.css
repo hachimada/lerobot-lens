@@ -1,0 +1,13 @@
+:root {
+  font-family: 'DM Sans Variable', sans-serif;
+  color: #20231f;
+  background: #efeee9;
+  font-synthesis: none;
+  --ink: #1d211d;
+  --muted: #73776e;
+  --line: #d5d3cb;
+  --paper: #f8f7f2;
+  --accent: #e95442;
+  --acid: #cde843;
+  --dark: #1b1e1a;
+}

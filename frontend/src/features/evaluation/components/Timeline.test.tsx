@@ -16,6 +16,9 @@ describe('Timeline', () => {
   it('clamps frame controls and reports playback and speed changes', async () => {
     const user = userEvent.setup()
     const onFrame = vi.fn()
+    const onRestart = vi.fn()
+    const onPreviousFrame = vi.fn()
+    const onNextFrame = vi.fn()
     const onPlaying = vi.fn()
     const onSpeed = vi.fn()
     const props = {
@@ -24,6 +27,9 @@ describe('Timeline', () => {
       playing: false,
       speed: 1,
       onFrame,
+      onRestart,
+      onPreviousFrame,
+      onNextFrame,
       onPlaying,
       onSpeed,
     }
@@ -40,7 +46,10 @@ describe('Timeline', () => {
     rerender(<Timeline frame={2} {...props} />)
     await user.click(screen.getByRole('button', { name: 'Next frame' }))
 
-    expect(onFrame.mock.calls).toEqual([[0], [1], [0], [2], [2]])
+    expect(onFrame).toHaveBeenCalledWith(2)
+    expect(onPreviousFrame).toHaveBeenCalledTimes(1)
+    expect(onNextFrame).toHaveBeenCalledTimes(2)
+    expect(onRestart).toHaveBeenCalledTimes(1)
     expect(onPlaying).toHaveBeenCalledWith(true)
     expect(onSpeed).toHaveBeenCalledWith(2)
   })
@@ -55,6 +64,9 @@ describe('Timeline', () => {
         speed={1}
         inferenceRange={[1, 3]}
         onFrame={vi.fn()}
+        onRestart={vi.fn()}
+        onPreviousFrame={vi.fn()}
+        onNextFrame={vi.fn()}
         onPlaying={vi.fn()}
         onSpeed={vi.fn()}
       />,

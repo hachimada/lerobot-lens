@@ -128,7 +128,7 @@ describe('RobotViewer', () => {
     expect(viewerState.loadedUrl).toBe('/api/sessions/session-123/urdf')
     expect(viewerState.packages).toBe(`${window.location.origin}/api/sessions/session-123/assets`)
     expect(viewerState.mesh).toMatchObject({ castShadow: true, receiveShadow: true })
-    expect(container.querySelector('.viewer')).toHaveAttribute('data-robot-bounds')
+    expect(container.firstElementChild).toHaveAttribute('data-robot-bounds')
 
     unmount()
     expect(viewerState.rendererDisposed).toBe(true)

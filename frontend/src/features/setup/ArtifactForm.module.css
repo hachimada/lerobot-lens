@@ -1,0 +1,471 @@
+.configurationBar {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  padding: 0 0 0 18px;
+  background: transparent;
+}
+
+.configurationPrimary {
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 1.15fr) minmax(200px, 1fr) minmax(220px, 1fr)
+    auto auto;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.artifactEditor {
+  min-width: 0;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 11px;
+  border: 1px solid var(--line);
+  background: #fff;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.artifactEditor:focus-within {
+  border-color: #777b71;
+  box-shadow: inset 0 -2px var(--acid);
+}
+
+.artifactEditor > span:first-child {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  display: grid;
+  place-items: center;
+  background: #eeece5;
+}
+
+.artifactEditorCopy {
+  min-width: 0;
+  flex: 1;
+}
+
+.artifactEditorCopy strong {
+  display: block;
+  margin-bottom: 2px;
+  color: #858980;
+  font: 650 9px 'JetBrains Mono';
+  letter-spacing: 1px;
+}
+
+.artifactEditorCopy input {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+}
+
+.artifactEditorCopy input::placeholder {
+  color: #a0a29b;
+  font-weight: 450;
+}
+
+.robotArtifactControl {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.robotArtifactControl > input {
+  flex: 1;
+  min-width: 0;
+}
+
+.builtInRobotSelect {
+  appearance: none;
+  width: 34px;
+  min-width: 34px;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--line);
+  outline: 0;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+}
+
+.builtInRobotSelect:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.builtInRobotSelect option {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.builtInRobotChevron {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  color: #666b62;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.robotArtifactControl:focus-within .builtInRobotChevron {
+  color: var(--ink);
+}
+
+.applyConfiguration {
+  width: 52px;
+  min-width: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  background: var(--dark);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.applyConfiguration:hover {
+  background: #30342e;
+}
+
+.applyConfiguration:disabled,
+.configurationDemo:disabled {
+  opacity: 0.55;
+}
+
+.headerAdvancedConfiguration {
+  position: static;
+  margin: 0;
+}
+
+.headerAdvancedTrigger {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: #eeece5;
+  color: #555a52;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s;
+}
+
+.headerAdvancedTrigger:hover,
+.headerAdvancedTrigger:focus-visible,
+.headerAdvancedConfiguration.isOpen .headerAdvancedTrigger {
+  border-color: #777b71;
+  background: #fff;
+  color: var(--ink);
+}
+
+.headerAdvancedTrigger:focus-visible {
+  outline: 2px solid var(--acid);
+  outline-offset: 1px;
+}
+
+.headerAdvancedConfiguration.isOpen .headerAdvancedTrigger {
+  box-shadow: inset 0 -2px var(--acid);
+}
+
+.headerAdvancedConfiguration .advancedConfigurationFields {
+  position: absolute;
+  z-index: 12;
+  top: 60px;
+  right: 0;
+  left: 18px;
+  margin: 0;
+  box-shadow: 0 14px 28px #2223;
+}
+
+.advancedConfigurationFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: #f9f8f3;
+}
+
+.advancedConfigurationFields label > span {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  color: #62675e;
+  font: 650 9px 'JetBrains Mono';
+  letter-spacing: 0.8px;
+}
+
+.advancedConfigurationFields small {
+  color: #9a9d94;
+}
+
+.advancedConfigurationFields input,
+.advancedConfigurationFields select {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  outline: 0;
+  background: #fff;
+  font-size: 12px;
+}
+
+.advancedConfigurationFields input:focus,
+.advancedConfigurationFields select:focus {
+  border-color: #777b71;
+}
+
+.configurationError {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid #f2b8ae;
+  background: #fff0ed;
+  color: #9d3025;
+  font-size: 12px;
+}
+
+.configurationDemo {
+  width: 100%;
+  height: 36px;
+  display: block;
+  margin: 2px auto 0;
+  border: 0;
+  background: transparent;
+  color: #5c6158;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.onboardingConfiguration {
+  padding: 0;
+}
+
+.onboardingConfiguration .configurationPrimary {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.onboardingArtifactField {
+  display: block;
+  margin-top: 14px;
+  margin-bottom: 0;
+}
+
+.onboardingArtifactField > span {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font: 600 11px 'JetBrains Mono';
+  letter-spacing: 1.1px;
+}
+
+.onboardingArtifactField small {
+  color: #9a9d94;
+}
+
+.onboardingArtifactField input {
+  width: 100%;
+  height: 43px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  outline: none;
+  background: #f8f7f3;
+  font-size: 14px;
+}
+
+.onboardingArtifactField input:focus {
+  border-color: #777b71;
+  background: #fff;
+}
+
+.onboardingArtifactField .robotArtifactControl input {
+  width: auto;
+  border-right: 0;
+}
+
+.onboardingArtifactField .builtInRobotSelect {
+  width: 43px;
+  min-width: 43px;
+  border: 1px solid var(--line);
+  background: #eeece5;
+}
+
+.onboardingArtifactField .robotArtifactControl:focus-within input,
+.onboardingArtifactField .robotArtifactControl:focus-within .builtInRobotSelect {
+  border-color: #777b71;
+  background: #fff;
+}
+
+.onboardingConfiguration .onboardingApply {
+  width: 100%;
+  height: 46px;
+  margin-top: 20px;
+}
+
+.onboardingAdvanced {
+  margin-top: 0;
+}
+
+.onboardingAdvanced .advancedConfigurationFields {
+  grid-template-columns: 1fr 1.55fr;
+  gap: 12px;
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.onboardingAdvanced .advancedConfigurationFields label {
+  margin: 14px 0 0;
+}
+
+.onboardingAdvanced .advancedConfigurationFields label > span {
+  margin-bottom: 6px;
+  font-size: 11px;
+  letter-spacing: 1.1px;
+}
+
+.onboardingAdvanced .advancedConfigurationFields input,
+.onboardingAdvanced .advancedConfigurationFields select {
+  height: 43px;
+  background: #f8f7f3;
+  font-size: 14px;
+}
+
+.onboardingAdvanced .angleUnitField {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+.fieldLabelCopy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.fieldHelp {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  color: #777b72;
+  cursor: help;
+  outline: none;
+}
+
+.fieldHelp:hover,
+.fieldHelp:focus-visible {
+  color: var(--accent);
+}
+
+.fieldHelp:after {
+  content: attr(data-tooltip);
+  position: absolute;
+  z-index: 20;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  width: min(300px, calc(100vw - 40px));
+  padding: 10px 12px;
+  border: 1px solid #bbb8ae;
+  background: var(--dark);
+  color: #fff;
+  box-shadow: 0 5px 16px #1114;
+  font:
+    500 11px/1.5 'DM Sans Variable',
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 3px);
+  transition:
+    opacity 0.15s,
+    transform 0.15s,
+    visibility 0.15s;
+  pointer-events: none;
+}
+
+.fieldHelp:hover:after,
+.fieldHelp:focus-visible:after {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+@media (max-width: 980px) {
+  .configurationPrimary {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto auto;
+  }
+
+  .applyConfiguration {
+    min-height: 46px;
+  }
+
+  .advancedConfigurationFields {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .configurationDemo {
+    margin-right: 0;
+  }
+}
+
+@media (max-width: 650px) {
+  .configurationBar {
+    position: static;
+    padding: 10px 0 0;
+  }
+
+  .configurationPrimary,
+  .advancedConfigurationFields {
+    grid-template-columns: 1fr;
+  }
+
+  .configurationPrimary {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) 48px 48px;
+  }
+
+  .onboardingConfiguration .configurationPrimary {
+    grid-template-columns: 1fr;
+  }
+
+  .headerAdvancedTrigger,
+  .configurationPrimary > .applyConfiguration {
+    width: 48px;
+    min-width: 48px;
+  }
+
+  .headerAdvancedConfiguration .advancedConfigurationFields {
+    top: 68px;
+    left: 0;
+    grid-template-columns: 1fr;
+  }
+
+  .artifactEditor {
+    height: 48px;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .artifactEditor > span:first-child {
+    display: none;
+  }
+
+  .artifactEditorCopy input {
+    font-size: 11px;
+  }
+}

@@ -11,13 +11,15 @@ test('opens the bundled demo and runs an action-chunk inference', async ({ page 
   expect(sessionResponse.status()).toBe(202)
   const session = (await sessionResponse.json()) as { id: string }
 
-  await expect(page.getByText('hachimada/so101_pick_place_red_1 · Episode 0')).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'DATASET', exact: true })).toHaveValue(
+    'hachimada/so101_pick_place_red_1',
+  )
   await expect(page.locator('.primary-camera img')).toBeVisible()
   await expect(
     page.getByRole('img', { name: /Selected joint actions: dataset over the full episode/ }),
   ).toBeVisible()
-  await expect(page.locator('.viewer canvas')).toBeVisible()
-  await expect(page.locator('.viewer-error')).toHaveCount(0)
+  await expect(page.locator('.viewer-shell canvas')).toBeVisible()
+  await expect(page.getByText('JOINT MAPPING ERROR', { exact: true })).toHaveCount(0)
 
   const urdfResponse = await page.request.get(`/api/sessions/${session.id}/urdf`)
   expect(urdfResponse.ok()).toBe(true)

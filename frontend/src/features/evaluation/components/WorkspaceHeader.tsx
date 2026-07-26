@@ -1,73 +1,58 @@
-import { Box, Database, Github, Settings2, Sparkles } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { Github } from 'lucide-react'
 
 import type { SessionSummary } from '../../../shared/api/types'
+import styles from './WorkspaceHeader.module.css'
 
 interface Props {
-  session: SessionSummary
-  onClose: () => void
+  session: SessionSummary | null
+  onClose?: () => void
+  children?: ReactNode
 }
 
-export function WorkspaceHeader({ session, onClose }: Props) {
-  const robotLabel = session.has_urdf
-    ? session.demo
-      ? 'SO-101 · Bundled URDF'
-      : 'Loaded URDF'
-    : 'No URDF · Graph mode'
+export function WorkspaceHeader({ session, onClose, children }: Props) {
+  const configured = session !== null
 
   return (
-    <header className="topbar">
-      <button className="brand brand-button" onClick={onClose}>
-        <span className="brand-mark">
-          <i />
-          <i />
-          <i />
-        </span>
-        <strong>LeRobot Lens</strong>
-      </button>
-      <div className="artifact-pills">
-        <Artifact label="DATASET" value={session.dataset} icon={<Database size={14} />} />
-        <Artifact
-          label="POLICY"
-          value={session.policy ?? 'Not loaded'}
-          icon={<Sparkles size={14} />}
-        />
-        <Artifact label="ROBOT" value={robotLabel} icon={<Box size={14} />} />
-      </div>
-      <div className="top-actions">
-        <span className="status-pill">
-          <i /> READY · {session.device.toUpperCase()}
-        </span>
-        <a
-          aria-label="Open LeRobot on GitHub"
-          href="https://github.com/huggingface/lerobot"
-          target="_blank"
-          rel="noreferrer"
+    <header className={styles.workspaceHeader}>
+      <div className={styles.topbar}>
+        <div
+          className={
+            configured ? `${styles.topbarMain} ${styles.hasConfiguration}` : styles.topbarMain
+          }
         >
-          <Github size={17} />
-        </a>
-        <button aria-label="Settings">
-          <Settings2 size={17} />
-        </button>
+          <div className={styles.brandCluster}>
+            <button
+              type="button"
+              className={`brand ${styles.brandButton}`}
+              aria-label={configured ? 'Return to workspace setup' : 'LeRobot Lens'}
+              title={configured ? 'Return to workspace setup' : 'LeRobot Lens'}
+              onClick={onClose}
+              disabled={!configured || !onClose}
+            >
+              <span className="brand-mark">
+                <i />
+                <i />
+                <i />
+              </span>
+              <strong>LeRobot Lens</strong>
+            </button>
+            {!configured && (
+              <a
+                className={styles.onboardingGithubLink}
+                href="https://github.com/hachimada/lerobot-lens"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open LeRobot Lens on GitHub"
+                title="Open LeRobot Lens on GitHub"
+              >
+                <Github size={18} aria-hidden="true" />
+              </a>
+            )}
+          </div>
+          {children}
+        </div>
       </div>
     </header>
-  )
-}
-
-interface ArtifactProps {
-  label: string
-  value: string
-  icon: ReactNode
-}
-
-function Artifact({ label, value, icon }: ArtifactProps) {
-  return (
-    <div>
-      <span>{icon}</span>
-      <p>
-        <small>{label}</small>
-        <strong>{value}</strong>
-      </p>
-    </div>
   )
 }

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import type { EpisodeActions } from '../../../shared/api/types'
 import { linePath } from '../actionGraph'
 import { ActionGraphs } from './ActionGraphs'
+import styles from './ActionGraphs.module.css'
 
 const actions: EpisodeActions = {
   episode: 0,
@@ -35,7 +36,9 @@ describe('ActionGraphs', () => {
 
     const shoulder = screen.getByRole('button', { name: /shoulder.*ON/ })
     const elbow = screen.getByRole('button', { name: /elbow.*ON/ })
+    expect(shoulder).toHaveClass(styles.active)
     await user.click(shoulder)
+    expect(shoulder).not.toHaveClass(styles.active)
     await user.click(elbow)
     expect(screen.getByText('No joints selected')).toBeInTheDocument()
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import type { EpisodeActions, InferenceResult } from '../../../shared/api/types'
 import { linePath } from '../actionGraph'
+import styles from './ActionGraphs.module.css'
 
 interface Props {
   episodeActions: EpisodeActions | null
@@ -38,7 +39,7 @@ export function ActionGraphs({ episodeActions, inference, currentFrame }: Props)
   }, [dimensions, episodeActions, inference])
 
   if (!episodeActions || episodeActions.actions.length === 0) {
-    return <div className="graph-loading">Loading episode actions…</div>
+    return <div className={styles.graphLoading}>Loading episode actions…</div>
   }
 
   const visibleSeries = series.filter(({ index }) => !disabledJoints.has(index))
@@ -70,10 +71,10 @@ export function ActionGraphs({ episodeActions, inference, currentFrame }: Props)
   }
 
   return (
-    <div className="action-graph-combined">
-      <div className="action-graph">
+    <div className={styles.actionGraphCombined}>
+      <div className={styles.actionGraph}>
         {visibleSeries.length === 0 ? (
-          <div className="graph-empty">
+          <div className={styles.graphEmpty}>
             <strong>No joints selected</strong>
             <span>Turn on one or more joints to display their action trajectories.</span>
           </div>
@@ -94,23 +95,28 @@ export function ActionGraphs({ episodeActions, inference, currentFrame }: Props)
               return (
                 <g key={position}>
                   <line
-                    className="graph-gridline"
+                    className={styles.graphGridline}
                     x1={PAD.left}
                     x2={WIDTH - PAD.right}
                     y1={y}
                     y2={y}
                   />
-                  <text className="graph-axis-label" x={PAD.left - 9} y={y + 4} textAnchor="end">
+                  <text
+                    className={styles.graphAxisLabel}
+                    x={PAD.left - 9}
+                    y={y + 4}
+                    textAnchor="end"
+                  >
                     {value.toFixed(1)}
                   </text>
                 </g>
               )
             })}
-            <text className="graph-axis-label" x={PAD.left} y={HEIGHT - 9}>
+            <text className={styles.graphAxisLabel} x={PAD.left} y={HEIGHT - 9}>
               0s
             </text>
             <text
-              className="graph-axis-label"
+              className={styles.graphAxisLabel}
               x={WIDTH - PAD.right}
               y={HEIGHT - 9}
               textAnchor="end"
@@ -119,7 +125,7 @@ export function ActionGraphs({ episodeActions, inference, currentFrame }: Props)
             </text>
             {inference && (
               <rect
-                className="chunk-window"
+                className={styles.chunkWindow}
                 x={PAD.left + (predictionStart / frameDenominator) * plotWidth}
                 y={PAD.top}
                 width={(inference.chunk_size / frameDenominator) * plotWidth}
@@ -128,7 +134,7 @@ export function ActionGraphs({ episodeActions, inference, currentFrame }: Props)
             )}
             {visibleSeries.map(({ index, color, dataset }) => (
               <path
-                className="dataset-action-line"
+                className={styles.datasetActionLine}
                 style={{ stroke: color }}
                 d={linePath(dataset, 0, totalFrames, min, max)}
                 key={`dataset-${index}`}
@@ -138,7 +144,7 @@ export function ActionGraphs({ episodeActions, inference, currentFrame }: Props)
               ({ index, color, predicted }) =>
                 predicted.length > 0 && (
                   <path
-                    className="predicted-action-line"
+                    className={styles.predictedActionLine}
                     style={{ stroke: color }}
                     d={linePath(predicted, predictionStart, totalFrames, min, max)}
                     key={`prediction-${index}`}
@@ -146,7 +152,7 @@ export function ActionGraphs({ episodeActions, inference, currentFrame }: Props)
                 ),
             )}
             <line
-              className="frame-cursor"
+              className={styles.frameCursor}
               x1={cursorX}
               x2={cursorX}
               y1={PAD.top}
@@ -156,8 +162,8 @@ export function ActionGraphs({ episodeActions, inference, currentFrame }: Props)
         )}
       </div>
 
-      <aside className="joint-toggles" aria-label="Joint visibility legend">
-        <div className="joint-value-heading">
+      <aside className={styles.jointToggles} aria-label="Joint visibility legend">
+        <div className={styles.jointValueHeading}>
           <button type="button" onClick={() => setDisabledJoints(new Set())}>
             Show all
           </button>
@@ -165,13 +171,13 @@ export function ActionGraphs({ episodeActions, inference, currentFrame }: Props)
           <strong>POLICY</strong>
           <em>VIEW</em>
         </div>
-        <div className="joint-toggle-list">
+        <div className={styles.jointToggleList}>
           {series.map(({ index, name, color, dataset, predicted }) => {
             const enabled = !disabledJoints.has(index)
             const policyValue = predictionIndex >= 0 ? predicted[predictionIndex] : undefined
             return (
               <button
-                className={enabled ? 'joint-toggle active' : 'joint-toggle'}
+                className={enabled ? `${styles.jointToggle} ${styles.active}` : styles.jointToggle}
                 type="button"
                 aria-pressed={enabled}
                 onClick={() => toggleJoint(index)}

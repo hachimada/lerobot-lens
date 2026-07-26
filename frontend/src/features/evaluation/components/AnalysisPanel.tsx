@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 
 import type { FrameData, InferenceResult, SessionSummary } from '../../../shared/api/types'
+import styles from './AnalysisPanel.module.css'
 
 interface Props {
   session: SessionSummary
@@ -46,8 +47,8 @@ export function AnalysisPanel(props: Props) {
   } = props
 
   return (
-    <aside className="analysis-panel">
-      <div className="analysis-heading">
+    <aside className={styles.analysisPanel}>
+      <div className={styles.analysisHeading}>
         <div>
           <span>
             <FlaskConical size={17} />
@@ -63,13 +64,13 @@ export function AnalysisPanel(props: Props) {
           </button>
         )}
       </div>
-      <div className="observation-card">
-        <div className="mini-heading">
+      <div className={styles.observationCard}>
+        <div className={styles.miniHeading}>
           <span>OBSERVATION</span>
           <em>FRAME {frameIndex}</em>
         </div>
         <p>Run the loaded policy from the currently selected dataset observation.</p>
-        <div className="obs-meta">
+        <div className={styles.obsMeta}>
           <div>
             <small>Episode</small>
             <strong>#{String(episodeIndex).padStart(3, '0')}</strong>
@@ -83,7 +84,7 @@ export function AnalysisPanel(props: Props) {
             <strong>{frameData.state.length}</strong>
           </div>
         </div>
-        <button className="infer-button" disabled={inferring} onClick={onInfer}>
+        <button className={styles.inferButton} disabled={inferring} onClick={onInfer}>
           {inferring ? (
             <>
               <LoaderCircle className="spin" size={17} /> Running policy…
@@ -97,7 +98,7 @@ export function AnalysisPanel(props: Props) {
       </div>
 
       {!inference ? (
-        <div className="empty-analysis">
+        <div className={styles.emptyAnalysis}>
           <span>
             <Activity size={25} />
           </span>
@@ -115,8 +116,8 @@ export function AnalysisPanel(props: Props) {
         />
       )}
 
-      {error && <div className="inline-error">{error}</div>}
-      <div className="analysis-footer">
+      {error && <div className={`${styles.inlineError} inline-error`}>{error}</div>}
+      <div className={styles.analysisFooter}>
         <BarChart3 size={15} /> Evaluation stays local
       </div>
     </aside>
@@ -136,44 +137,44 @@ function InferenceDetails(props: InferenceDetailsProps) {
   const { session, inference, step, playing, onStep, onPlaying } = props
   return (
     <>
-      <div className="result-status">
+      <div className={styles.resultStatus}>
         <div>
           <i />
           <span>INFERENCE COMPLETE</span>
         </div>
         <strong>{inference.chunk_size} actions</strong>
       </div>
-      <div className="chunk-player">
-        <div className="mini-heading">
+      <div className={styles.chunkPlayer}>
+        <div className={styles.miniHeading}>
           <span>CHUNK REPLAY</span>
           <em>
             {step + 1} / {inference.chunk_size}
           </em>
         </div>
-        <div className="chunk-track">
+        <div className={styles.chunkTrack}>
           <div style={{ width: `${((step + 1) / inference.chunk_size) * 100}%` }} />
         </div>
-        <div className="chunk-controls">
+        <div className={styles.chunkControls}>
           <button aria-label="Restart chunk" onClick={() => onStep(0)}>
             <RotateCcw size={15} />
           </button>
-          <button className="chunk-play" onClick={() => onPlaying(!playing)}>
+          <button className={styles.chunkPlay} onClick={() => onPlaying(!playing)}>
             {playing ? <CircleStop size={16} /> : <Play size={16} />} {playing ? 'Stop' : 'Replay'}
           </button>
         </div>
       </div>
-      <div className="action-table">
-        <div className="mini-heading">
+      <div className={styles.actionTable}>
+        <div className={styles.miniHeading}>
           <span>PREDICTED ACTION</span>
           <em>STEP {step}</em>
         </div>
         {(inference.predicted_actions[step] ?? []).slice(0, 7).map((value, index) => {
           const truth = inference.ground_truth_actions[step]?.[index] ?? 0
           return (
-            <div className="action-row" key={index}>
+            <div className={styles.actionRow} key={index}>
               <span>{session.joint_names[index] ?? `joint_${index + 1}`}</span>
               <strong>{value.toFixed(3)}</strong>
-              <em className={Math.abs(value - truth) < 0.04 ? 'good' : ''}>
+              <em className={Math.abs(value - truth) < 0.04 ? styles.good : undefined}>
                 {value - truth >= 0 ? '+' : ''}
                 {(value - truth).toFixed(3)}
               </em>
@@ -181,12 +182,12 @@ function InferenceDetails(props: InferenceDetailsProps) {
           )
         })}
       </div>
-      <div className="legend">
+      <div className={styles.legend}>
         <span>
-          <i className="prediction" /> prediction
+          <i className={styles.prediction} /> prediction
         </span>
         <span>
-          <i className="truth" /> dataset
+          <i className={styles.truth} /> dataset
         </span>
       </div>
     </>
