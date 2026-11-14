@@ -43,6 +43,10 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: backend
+        env:
+          # egl-probe (lerobot[all] -> hf-libero -> robomimic) builds from source with
+          # cmake_minimum_required(VERSION 2.8.12), which CMake 4 on the runner rejects.
+          CMAKE_POLICY_VERSION_MINIMUM: "3.5"
         run: uv sync --locked
 
       - name: Install frontend dependencies
