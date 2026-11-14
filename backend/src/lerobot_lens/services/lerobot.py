@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -161,39 +161,34 @@ def frame(runtime: RuntimeSession, episode: int, frame_index: int) -> FrameData:
 
 def infer(runtime: RuntimeSession, episode: int, frame_index: int) -> InferResult:
     start, end = _episode_range(runtime, episode)
-    if start + frame_index < start or start + frame_index >= end:
+    index = start + frame_index
+    if index < start or index >= end:
         raise IndexError("Frame outside episode")
-    sample = runtime.dataset[start + frame_index]
-    observation: dict[str, Any] = {}
-    for key, value in sample.items():
-        if not key.startswith("observation."):
-            continue
-        tensor = value if isinstance(value, torch.Tensor) else torch.as_tensor(value)
-        observation[key] = tensor.unsqueeze(0).to(runtime.summary.device)
+
+    # Each request is an independent query at an arbitrary frame, so no policy
+    # or processor state from a previous request may leak into it.
+    runtime.policy.reset()
+    for processor in (runtime.preprocessor, runtime.postprocessor):
+        if processor is not None:
+            processor.reset()
 
     with torch.inference_mode():
-        batch = runtime.preprocessor(observation) if runtime.preprocessor else observation
-        if hasattr(runtime.policy, "predict_action_chunk"):
-            actions = runtime.policy.predict_action_chunk(batch)
-        else:
-            runtime.policy.reset()
-            chunk_size = int(getattr(runtime.policy.config, "chunk_size", 1))
-            actions = torch.stack(
-                [runtime.policy.select_action(batch) for _ in range(chunk_size)], dim=1
+        if _predicts_chunks_directly(runtime.policy):
+            actions = _action_tensor(
+                runtime.policy.predict_action_chunk(_policy_input(runtime, index))
             )
+        else:
+            actions = _select_action_chunk(runtime, start, index)
         if runtime.postprocessor:
             actions = runtime.postprocessor(actions)
 
     predicted = actions.detach().cpu().squeeze(0).numpy()
     if predicted.ndim == 1:
         predicted = predicted[None, :]
-    count = min(len(predicted), end - (start + frame_index))
+    count = min(len(predicted), end - index)
     predicted = predicted[:count]
     ground_truth = np.asarray(
-        [
-            tensor_list(runtime.dataset[start + frame_index + offset]["action"])
-            for offset in range(count)
-        ]
+        [tensor_list(runtime.dataset[index + offset]["action"]) for offset in range(count)]
     )
     return InferResult(
         episode=episode,
@@ -203,6 +198,63 @@ def infer(runtime: RuntimeSession, episode: int, frame_index: int) -> InferResul
         ground_truth_actions=ground_truth.tolist(),
         chunk_size=count,
     )
+
+
+def _predicts_chunks_directly(policy: Any) -> bool:
+    """Return whether ``predict_action_chunk`` works from the current observation alone.
+
+    LeRobot policies declare this contract through ``chunk_inference_spec``, which
+    rejects policies that need observation history or ``select_action``-only
+    preparation, such as Diffusion and Multi-Task DiT.
+    """
+    try:
+        policy.chunk_inference_spec()
+    except ValueError:
+        return False
+    return True
+
+
+def _select_action_chunk(runtime: RuntimeSession, start: int, index: int) -> torch.Tensor:
+    """Predict one chunk through ``select_action`` with the policy's observation history.
+
+    Frames before the episode start are omitted; the policy pads its history by
+    repeating the oldest observation, as it does during training.
+    """
+    policy = runtime.policy
+    n_obs_steps = max(1, int(getattr(policy.config, "n_obs_steps", None) or 1))
+    for history_index in range(max(start, index - n_obs_steps + 1), index):
+        policy.select_action(_policy_input(runtime, history_index))
+    # Feeding history may already have queued actions predicted from a partial
+    # history; drop them so the chunk is predicted from the requested frame.
+    policy.drop_queued_actions()
+    batch = _policy_input(runtime, index)
+    actions = [_action_tensor(policy.select_action(batch))]
+    while policy.count_queued_actions() > 0:
+        actions.append(_action_tensor(policy.select_action(batch)))
+    return torch.stack(actions, dim=1)
+
+
+def _policy_input(runtime: RuntimeSession, index: int) -> dict[str, Any]:
+    """Build a preprocessed single-frame policy input batch from a dataset sample."""
+    sample = runtime.dataset[index]
+    batch: dict[str, Any] = {}
+    for key, value in sample.items():
+        if not key.startswith("observation."):
+            continue
+        tensor = value if isinstance(value, torch.Tensor) else torch.as_tensor(value)
+        batch[key] = tensor.unsqueeze(0).to(runtime.summary.device)
+    # Language-conditioned policies such as SmolVLA and pi0 tokenize the task
+    # in their preprocessor and fail without it.
+    task = sample.get("task")
+    batch["task"] = [task if isinstance(task, str) else ""]
+    return cast(dict[str, Any], runtime.preprocessor(batch)) if runtime.preprocessor else batch
+
+
+def _action_tensor(output: Any) -> torch.Tensor:
+    """Extract actions from a policy output, which may also carry a prediction."""
+    if isinstance(output, dict):
+        return cast(torch.Tensor, output["action"])
+    return cast(torch.Tensor, output)
 
 
 def _episode_range(runtime: RuntimeSession, episode: int) -> tuple[int, int]:
