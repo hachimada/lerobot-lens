@@ -1,5 +1,8 @@
+import threading
+import time
 from collections import deque
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -163,6 +166,39 @@ def test_episode_actions_and_frame_convert_dataset_values() -> None:
         lerobot.frame(runtime, 0, -1)
     with pytest.raises(IndexError, match="Frame outside episode"):
         lerobot.frame(runtime, 0, 2)
+
+
+class ConcurrencyProbeDataset(FakeDataset):
+    """Record how many threads read samples at once, like a shared video decoder would see."""
+
+    def __init__(self, samples: list[dict[str, Any]], meta: Any) -> None:
+        super().__init__(samples, meta)
+        self.active = 0
+        self.max_active = 0
+        self.counter_lock = threading.Lock()
+
+    def __getitem__(self, index: int) -> dict[str, Any]:
+        with self.counter_lock:
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+        time.sleep(0.005)
+        with self.counter_lock:
+            self.active -= 1
+        return super().__getitem__(index)
+
+
+def test_concurrent_frame_requests_never_read_samples_in_parallel() -> None:
+    dataset = ConcurrencyProbeDataset(make_samples(), SimpleNamespace())
+    runtime = runtime_session()
+    runtime.dataset = dataset
+    runtime.episode_ranges = {0: (0, 4)}
+    runtime.summary.state_key = "observation.state"
+
+    with ThreadPoolExecutor(8) as pool:
+        frames = list(pool.map(lambda index: lerobot.frame(runtime, 0, index % 4), range(32)))
+
+    assert [frame.frame for frame in frames] == [index % 4 for index in range(32)]
+    assert dataset.max_active == 1
 
 
 def test_frame_uses_timestamp_fallback() -> None:
