@@ -12,7 +12,7 @@ from .runtime import RuntimeSession
 
 
 def load_dataset(runtime: RuntimeSession) -> None:
-    """Load and index a LeRobot v0.6 dataset into a runtime session."""
+    """Load and index a LeRobot v0.7 dataset into a runtime session."""
 
     # Keep LeRobot lazy so demo mode and API startup do not import its full
     # dataset and video stack.

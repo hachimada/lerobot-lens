@@ -3,7 +3,7 @@
 [![CI](https://github.com/hachimada/lerobot-lens/actions/workflows/ci.yml/badge.svg)](https://github.com/hachimada/lerobot-lens/actions)
 [![codecov](https://codecov.io/gh/hachimada/lerobot-lens/branch/main/graph/badge.svg)](https://codecov.io/gh/hachimada/lerobot-lens)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![LeRobot 0.6+](https://img.shields.io/badge/LeRobot-0.6%2B-FFD21E)](https://github.com/huggingface/lerobot)
+[![LeRobot 0.7+](https://img.shields.io/badge/LeRobot-0.7%2B-FFD21E)](https://github.com/huggingface/lerobot)
 
 LeRobot Lens visualizes how a policy responds to observations from a LeRobot dataset. It compares the resulting action chunks with recorded actions and can replay the motion using a URDF model.
 

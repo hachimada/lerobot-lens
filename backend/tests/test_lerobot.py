@@ -31,7 +31,7 @@ class FakeDataset:
         return self.samples[index]
 
 
-def test_lerobot_v06_api_surface_is_available() -> None:
+def test_lerobot_v07_api_surface_is_available() -> None:
     """Fail offline when the installed LeRobot API no longer matches our adapter."""
     from lerobot.configs.policies import PreTrainedConfig
     from lerobot.datasets.lerobot_dataset import LeRobotDataset
