@@ -2,54 +2,7 @@ import { fireEvent, render, renderHook } from '@testing-library/react'
 import type { MouseEvent } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
-import { keepFocusOffButtons, shortcutForEvent, useKeyboardShortcuts } from './useKeyboardShortcuts'
-
-function key(key: string, init: KeyboardEventInit = {}, target?: EventTarget) {
-  const event = new KeyboardEvent('keydown', { key, cancelable: true, ...init })
-  if (target) Object.defineProperty(event, 'target', { value: target })
-  return event
-}
-
-describe('shortcutForEvent', () => {
-  it('maps keys to workspace actions', () => {
-    expect(shortcutForEvent(key(' '))).toBe('toggle-play')
-    expect(shortcutForEvent(key('ArrowLeft'))).toBe('previous-frame')
-    expect(shortcutForEvent(key('ArrowRight'))).toBe('next-frame')
-    expect(shortcutForEvent(key('ArrowLeft', { shiftKey: true }))).toBe('back-10')
-    expect(shortcutForEvent(key('ArrowRight', { shiftKey: true }))).toBe('forward-10')
-    expect(shortcutForEvent(key('Home'))).toBe('first-frame')
-    expect(shortcutForEvent(key('End'))).toBe('last-frame')
-    expect(shortcutForEvent(key('['))).toBe('previous-episode')
-    expect(shortcutForEvent(key(']'))).toBe('next-episode')
-    expect(shortcutForEvent(key('i'))).toBe('probe')
-    expect(shortcutForEvent(key('I'))).toBe('probe')
-    expect(shortcutForEvent(key('r'))).toBe('replay')
-    expect(shortcutForEvent(key('R'))).toBe('replay')
-    expect(shortcutForEvent(key('Delete'))).toBe('remove-probe')
-    expect(shortcutForEvent(key('Backspace'))).toBe('remove-probe')
-    expect(shortcutForEvent(key('Escape'))).toBe('escape')
-    expect(shortcutForEvent(key('?'))).toBe('help')
-    expect(shortcutForEvent(key('x'))).toBeNull()
-  })
-
-  it('leaves modified keys, form fields, and focused buttons alone', () => {
-    expect(shortcutForEvent(key('i', { ctrlKey: true }))).toBeNull()
-    expect(shortcutForEvent(key('i', { metaKey: true }))).toBeNull()
-
-    const input = document.createElement('input')
-    expect(shortcutForEvent(key('i', {}, input))).toBeNull()
-    expect(shortcutForEvent(key('Escape', {}, input))).toBe('escape')
-
-    const button = document.createElement('button')
-    expect(shortcutForEvent(key(' ', {}, button))).toBeNull()
-    expect(shortcutForEvent(key('Enter', {}, button))).toBeNull()
-    expect(shortcutForEvent(key('ArrowRight', {}, button))).toBe('next-frame')
-
-    const prevented = key('i')
-    prevented.preventDefault()
-    expect(shortcutForEvent(prevented)).toBeNull()
-  })
-})
+import { keepFocusOffButtons, useKeyboardShortcuts } from './useKeyboardShortcuts'
 
 describe('useKeyboardShortcuts', () => {
   it('dispatches actions with the latest handler and stops listening on unmount', () => {

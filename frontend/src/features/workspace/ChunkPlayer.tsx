@@ -4,6 +4,7 @@ import { formatValue } from '../../shared/lib/format'
 import { frameRange } from './labels'
 import type { ProbeView } from './probes'
 import { ERROR_LEVEL_LABEL } from './probes'
+import { withShortcut } from './shortcuts'
 import styles from './ChunkPlayer.module.css'
 
 interface Props {
@@ -89,7 +90,7 @@ export function ChunkPlayer({
           <button
             type="button"
             className="btn btn-ghost btn-sm"
-            title="Remove this probe (Delete)"
+            title={withShortcut('Remove this probe', 'remove-probe')}
             onClick={() => onRemove(probe.id)}
           >
             <X size={13} /> Remove this probe
@@ -101,7 +102,7 @@ export function ChunkPlayer({
           type="button"
           className={styles.play}
           aria-label={playing ? 'Pause chunk' : 'Play chunk'}
-          title={playing ? 'Pause chunk' : 'Play chunk (R)'}
+          title={withShortcut(playing ? 'Pause chunk' : 'Play chunk', 'replay')}
           onClick={onTogglePlay}
         >
           {playing ? (

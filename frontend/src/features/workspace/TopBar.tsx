@@ -13,6 +13,7 @@ import {
 import type { Theme } from '../../app/useTheme'
 import type { SessionSummary } from '../../shared/api/types'
 import { ArtifactLabel } from '../../shared/ui/ArtifactLabel'
+import { withShortcut } from './shortcuts'
 import styles from './TopBar.module.css'
 
 interface Props {
@@ -100,7 +101,7 @@ export function TopBar({
             type="button"
             className="icon-btn"
             aria-label="Keyboard shortcuts"
-            title="Keyboard shortcuts (?)"
+            title={withShortcut('Keyboard shortcuts', 'help')}
             onClick={onShowShortcuts}
           >
             <Keyboard size={17} />

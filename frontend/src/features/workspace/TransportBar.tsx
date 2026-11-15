@@ -2,6 +2,7 @@ import { Pause, Play, SkipBack, SkipForward } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { timecode } from '../../shared/lib/format'
+import { withShortcut } from './shortcuts'
 import styles from './TransportBar.module.css'
 
 interface Props {
@@ -38,7 +39,7 @@ export function TransportBar({
           type="button"
           className="icon-btn"
           aria-label="Previous frame"
-          title="Previous frame (←)"
+          title={withShortcut('Previous frame', 'previous-frame')}
           onClick={() => onStep(-1)}
         >
           <SkipBack size={15} />
@@ -47,7 +48,7 @@ export function TransportBar({
           type="button"
           className={styles.play}
           aria-label={playing ? 'Pause' : 'Play'}
-          title={playing ? 'Pause (Space)' : 'Play (Space)'}
+          title={withShortcut(playing ? 'Pause' : 'Play', 'toggle-play')}
           onClick={onToggle}
         >
           {playing ? (
@@ -60,7 +61,7 @@ export function TransportBar({
           type="button"
           className="icon-btn"
           aria-label="Next frame"
-          title="Next frame (→)"
+          title={withShortcut('Next frame', 'next-frame')}
           onClick={() => onStep(1)}
         >
           <SkipForward size={15} />

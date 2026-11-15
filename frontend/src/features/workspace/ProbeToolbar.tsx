@@ -4,6 +4,7 @@ import { LoaderCircle, ScanLine, Sparkles, SquarePen, Trash2, X } from 'lucide-r
 import type { ScanProgress } from '../../app/useProbes'
 import { ConfirmButton } from '../../shared/ui/ConfirmButton'
 import { scanStride } from './probes'
+import { shortcutHint, withShortcut } from './shortcuts'
 import styles from './ProbeToolbar.module.css'
 
 interface Props {
@@ -102,13 +103,15 @@ export function ProbeToolbar(props: Props) {
       className={`btn btn-sm ${styles.control}`}
       disabled={probing || !!scan}
       title={
-        scan ? 'Wait for the whole-episode probe to finish' : 'Run the policy on this frame (I)'
+        scan
+          ? 'Wait for the whole-episode probe to finish'
+          : withShortcut('Run the policy on this frame', 'probe')
       }
       onClick={onProbe}
     >
       {probing ? <LoaderCircle className="spin" size={14} /> : <Sparkles size={14} />}
       {probing ? 'Running policy…' : `Probe frame ${frame}`}
-      <span className="kbd">I</span>
+      <span className="kbd">{shortcutHint('probe')}</span>
     </button>
   )
 
