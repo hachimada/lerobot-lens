@@ -1,0 +1,47 @@
+.track {
+  position: relative;
+  height: 24px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.rail,
+.played {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  height: 4px;
+  border-radius: 999px;
+}
+
+.rail {
+  right: 0;
+  background: var(--surface-3);
+}
+
+.played {
+  background: color-mix(in srgb, var(--text) 35%, transparent);
+}
+
+.playhead {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.playhead::after {
+  position: absolute;
+  top: 3px;
+  left: -5px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  content: '';
+}

@@ -64,4 +64,5 @@ export const api = {
       ...(signal ? { signal } : {}),
     }),
   urdfUrl: (id: string) => `/api/sessions/${id}/urdf`,
+  assetsUrl: (id: string) => `${window.location.origin}/api/sessions/${id}/assets`,
 }

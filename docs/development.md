@@ -79,9 +79,9 @@ backend/src/lerobot_lens/
 └── services/     Sessions, LeRobot integration, media, and URDF processing
 
 frontend/src/
-├── app/          Application composition and state management
-├── features/     Setup and evaluation features
-└── shared/       API client and transport types
+├── app/          Screens, workspace composition, and state hooks
+├── features/     Session setup and the inspection workspace components
+└── shared/       API client, formatting helpers, and shared UI
 
 scripts/          Repository-wide development scripts
 ```

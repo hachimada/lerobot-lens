@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../shared/api/client'
+import { errorMessage, isAbortError } from '../shared/lib/errors'
 import type { Episode, SessionCreate, SessionSummary } from '../shared/api/types'
 
-interface Options {
-  onWorkspaceCleared: () => void
-  onWorkspaceReady: (sessionId: string, episodes: Episode[]) => void
+export interface LoadingState {
+  message: string
+  startedAt: number
+  hasPolicy: boolean
 }
 
-const createEmptyConfiguration = (): SessionCreate => ({
+export const DEMO_POLICY = 'demo://dataset-trajectory-noise'
+
+export const createEmptyConfiguration = (): SessionCreate => ({
   dataset: '',
   policy: null,
   urdf: null,
@@ -18,11 +22,17 @@ const createEmptyConfiguration = (): SessionCreate => ({
   demo: false,
 })
 
+export const DEMO_CONFIGURATION: SessionCreate = {
+  ...createEmptyConfiguration(),
+  dataset: 'demo',
+  demo: true,
+}
+
 function configurationForEditor(submitted: SessionCreate, created: SessionSummary): SessionCreate {
   if (!submitted.demo) return submitted
   return {
     dataset: created.dataset.replace(/\s+·\s+Episode\s+\d+$/, ''),
-    policy: 'demo://dataset-trajectory-noise',
+    policy: DEMO_POLICY,
     urdf: created.has_urdf ? 'builtin://so101' : null,
     device: submitted.device,
     joint_mapping: created.joint_mapping,
@@ -31,95 +41,92 @@ function configurationForEditor(submitted: SessionCreate, created: SessionSummar
   }
 }
 
-function isAbortError(cause: unknown): boolean {
-  return cause instanceof DOMException && cause.name === 'AbortError'
-}
+const POLL_INTERVAL_MS = 750
 
-export function useWorkspaceSession({ onWorkspaceCleared, onWorkspaceReady }: Options) {
+/**
+ * Creates sessions and polls them until ready. A session being replaced stays
+ * on screen until its successor is ready, so a failed load never strands the user.
+ */
+export function useWorkspaceSession() {
   const [session, setSession] = useState<SessionSummary | null>(null)
+  const [episodes, setEpisodes] = useState<Episode[]>([])
   const [configuration, setConfiguration] = useState<SessionCreate>(createEmptyConfiguration)
-  const [loading, setLoading] = useState(false)
-  const [settingsError, setSettingsError] = useState<string | null>(null)
-  const requestGeneration = useRef(0)
-  const requestController = useRef<AbortController | null>(null)
+  const [loading, setLoading] = useState<LoadingState | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const controllerRef = useRef<AbortController | null>(null)
 
-  const invalidateRequest = useCallback(() => {
-    requestGeneration.current += 1
-    requestController.current?.abort()
-    requestController.current = null
+  const abort = useCallback(() => {
+    controllerRef.current?.abort()
+    controllerRef.current = null
   }, [])
 
-  useEffect(() => invalidateRequest, [invalidateRequest])
+  useEffect(() => abort, [abort])
 
-  const closeWorkspace = useCallback(() => {
-    invalidateRequest()
-    onWorkspaceCleared()
+  const cancelLoading = useCallback(() => {
+    abort()
+    setLoading(null)
+  }, [abort])
+
+  const closeSession = useCallback(() => {
+    abort()
     setSession(null)
-    setConfiguration(createEmptyConfiguration())
-    setLoading(false)
-    setSettingsError(null)
-  }, [invalidateRequest, onWorkspaceCleared])
+    setEpisodes([])
+    setLoading(null)
+    setError(null)
+  }, [abort])
 
   const loadSession = useCallback(
-    async (payload: SessionCreate, preserveWorkspace: boolean) => {
-      invalidateRequest()
-      const requestId = requestGeneration.current
+    async (payload: SessionCreate): Promise<boolean> => {
+      abort()
       const controller = new AbortController()
-      requestController.current = controller
-      setLoading(true)
-      if (preserveWorkspace) {
-        setSettingsError(null)
-      } else {
-        setSession(null)
-        onWorkspaceCleared()
-        setSettingsError(null)
-      }
+      controllerRef.current = controller
+      const hasPolicy = payload.demo || !!payload.policy
+      setError(null)
+      setLoading({ message: 'Starting session…', startedAt: Date.now(), hasPolicy })
 
       try {
         let created = await api.createSession(payload, controller.signal)
         while (created.status === 'loading') {
-          await new Promise((resolve) => setTimeout(resolve, 750))
-          if (controller.signal.aborted || requestId !== requestGeneration.current) return
+          const message = created.message
+          setLoading((current) => (current ? { ...current, message } : current))
+          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+          if (controller.signal.aborted) return false
           created = await api.getSession(created.id, controller.signal)
         }
-        if (controller.signal.aborted || requestId !== requestGeneration.current) return
         if (created.status === 'error') throw new Error(created.message)
         const available = await api.getEpisodes(created.id, controller.signal)
-        if (controller.signal.aborted || requestId !== requestGeneration.current) return
+        if (controller.signal.aborted) return false
         if (available.length === 0) throw new Error('The dataset contains no episodes.')
 
-        onWorkspaceReady(created.id, available)
-        setSettingsError(null)
+        setEpisodes(available)
         setConfiguration(configurationForEditor(payload, created))
-        // Publish the session only after consumers install its initial episode state.
         setSession(created)
+        return true
       } catch (cause) {
-        if (
-          controller.signal.aborted ||
-          requestId !== requestGeneration.current ||
-          isAbortError(cause)
-        ) {
-          return
-        }
-        const message = cause instanceof Error ? cause.message : 'Failed to load workspace'
-        if (!preserveWorkspace) setSession(null)
-        setSettingsError(message)
+        if (controller.signal.aborted || isAbortError(cause)) return false
+        setError(errorMessage(cause, 'Failed to load the session'))
+        return false
       } finally {
-        if (requestId === requestGeneration.current) {
-          requestController.current = null
-          setLoading(false)
+        if (controllerRef.current === controller) {
+          controllerRef.current = null
+          setLoading(null)
         }
       }
     },
-    [invalidateRequest, onWorkspaceCleared, onWorkspaceReady],
+    [abort],
   )
+
+  const clearError = useCallback(() => setError(null), [])
 
   return {
     session,
+    episodes,
     configuration,
     loading,
-    settingsError,
+    error,
     loadSession,
-    closeWorkspace,
+    cancelLoading,
+    closeSession,
+    clearError,
   }
 }

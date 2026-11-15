@@ -1,0 +1,134 @@
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 52px;
+  padding: 0 12px 0 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.leading,
+.trailing {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.trailing {
+  margin-left: auto;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
+.brand:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+.brand:disabled {
+  cursor: default;
+}
+
+.mark {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 18px;
+}
+
+.mark i {
+  display: block;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--text);
+}
+
+.mark i:nth-child(1) {
+  height: 9px;
+  transform: rotate(-22deg);
+}
+
+.mark i:nth-child(2) {
+  height: 17px;
+  background: var(--accent);
+}
+
+.mark i:nth-child(3) {
+  height: 12px;
+  transform: rotate(22deg);
+}
+
+.wordmark {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.sessionSummary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 320px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chip svg {
+  flex: none;
+  color: var(--text-subtle);
+}
+
+.chip > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chipMuted {
+  color: var(--text-subtle);
+}
+
+.demoBadge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+@media (max-width: 980px) {
+  .chip {
+    max-width: 150px;
+  }
+}
+
+@media (max-width: 760px) {
+  .sessionSummary .chip:nth-child(3) {
+    display: none;
+  }
+}

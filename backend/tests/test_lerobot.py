@@ -482,6 +482,9 @@ def test_load_policy_moves_model_and_processor_to_runtime_device(
         def eval(self) -> None:
             calls.append(("eval", ""))
 
+        def chunk_inference_spec(self) -> SimpleNamespace:
+            return SimpleNamespace(prediction_steps=100)
+
     policy = Policy()
 
     class PolicyClass:
@@ -508,4 +511,20 @@ def test_load_policy_moves_model_and_processor_to_runtime_device(
     assert runtime.preprocessor == "pre"
     assert runtime.postprocessor == "post"
     assert calls == [("to", "mps"), ("eval", "")]
+    assert runtime.summary.action_chunk_size == 100
     assert processor_args["preprocessor_overrides"] == {"device_processor": {"device": "mps"}}
+
+
+def test_action_chunk_size_follows_how_each_policy_predicts() -> None:
+    direct = SimpleNamespace(
+        chunk_inference_spec=lambda: SimpleNamespace(prediction_steps=50),
+        config=SimpleNamespace(n_action_steps=10),
+    )
+    assert lerobot._action_chunk_size(direct) == 50
+
+    queued = HistoryPolicy(n_obs_steps=2, n_action_steps=24)
+    queued.config.n_action_steps = 24
+    assert lerobot._action_chunk_size(queued) == 24
+
+    unknown = HistoryPolicy(n_obs_steps=1)
+    assert lerobot._action_chunk_size(unknown) is None

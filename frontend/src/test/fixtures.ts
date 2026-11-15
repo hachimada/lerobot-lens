@@ -18,6 +18,7 @@ export const session: SessionSummary = {
   dataset_angle_unit: null,
   has_urdf: false,
   demo: false,
+  action_chunk_size: 2,
 }
 
 export const frame: FrameData = {

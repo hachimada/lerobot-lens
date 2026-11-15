@@ -1,0 +1,76 @@
+.track {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  padding: 2px 0;
+}
+
+.lane {
+  position: relative;
+  height: 22px;
+}
+
+.segment {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  min-width: 6px;
+  padding: 0 6px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--level) 65%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--level) 22%, transparent);
+  color: var(--text);
+  font-size: 10px;
+  white-space: nowrap;
+  transition:
+    background 120ms ease,
+    opacity 120ms ease;
+}
+
+.segment:hover {
+  z-index: 1;
+  background: color-mix(in srgb, var(--level) 38%, transparent);
+}
+
+.track[data-has-selection] .segment:not([aria-pressed='true']) {
+  opacity: 0.55;
+}
+
+.track[data-has-selection] .segment:not([aria-pressed='true']):hover {
+  opacity: 1;
+}
+
+.segment[aria-pressed='true'] {
+  z-index: 1;
+  border: 2px solid var(--level);
+  background: var(--level);
+  color: var(--surface);
+  font-weight: 700;
+}
+
+/* A thin reference to the recording position; it does not drive the probes. */
+.recordingMarker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  margin-left: -0.5px;
+  border-left: 1px dashed color-mix(in srgb, var(--text) 45%, transparent);
+  pointer-events: none;
+}
+
+.stepCursor {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  z-index: 2;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--surface);
+  pointer-events: none;
+}

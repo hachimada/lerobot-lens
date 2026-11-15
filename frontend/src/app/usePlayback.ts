@@ -1,122 +1,83 @@
-import { useCallback, useEffect, useState } from 'react'
-
-import type { InferenceResult } from '../shared/api/types'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 interface Options {
   frame: number
   frameCount: number
-  episodeFps: number
-  onFrame: (frame: number) => void
-}
-
-interface ChunkPlayback {
-  startFrame: number
-  length: number
   fps: number
+  /** Playback rate; 1 is real time. */
+  speed?: number
+  onFrame: (frame: number) => void
+  /** Whether the current frame is on screen; playback waits for it before advancing. */
+  ready?: boolean
 }
 
-export function usePlayback({ frame, frameCount, episodeFps, onFrame }: Options) {
+/**
+ * Episode playback. It is frame-locked: it advances only once the current
+ * frame has been decoded and shown, so slow decoding slows playback instead of
+ * skipping frames or letting the robot model run ahead of the camera.
+ */
+export function usePlayback({ frame, frameCount, fps, speed = 1, onFrame, ready = true }: Options) {
   const [playing, setPlaying] = useState(false)
-  const [speed, setSpeed] = useState(1)
-  const [inferenceStep, setInferenceStep] = useState(0)
-  const [inferencePlaying, setInferencePlaying] = useState(false)
-  const [chunk, setChunk] = useState<ChunkPlayback | null>(null)
+  const lastFrame = Math.max(0, frameCount - 1)
+  const frameRef = useRef(frame)
+  frameRef.current = frame
+  const lastAdvance = useRef(0)
+  // Bumped by every seek, play, and pause, so a frame timer scheduled before
+  // one of them cannot undo it when it fires ahead of the next render.
+  const changes = useRef(0)
 
   useEffect(() => {
-    if (!playing) return
-    const timer = window.setInterval(
-      () => {
-        if (frame >= frameCount - 1) {
-          setPlaying(false)
-          return
-        }
-        onFrame(frame + 1)
-      },
-      1000 / episodeFps / speed,
-    )
-    return () => window.clearInterval(timer)
-  }, [episodeFps, frame, frameCount, onFrame, playing, speed])
-
-  useEffect(() => {
-    if (!inferencePlaying || !chunk) return
-    const timer = window.setInterval(() => {
-      setInferenceStep((current) => {
-        if (current >= chunk.length - 1) {
-          setInferencePlaying(false)
-          return current
-        }
-        return current + 1
-      })
-    }, 1000 / chunk.fps)
-    return () => window.clearInterval(timer)
-  }, [chunk, inferencePlaying])
+    if (!playing || frame >= lastFrame || !ready) return
+    // Count decode time against the frame interval so playback stays real-time when it can.
+    const interval = 1000 / Math.max(1, fps) / speed
+    const delay = Math.max(0, interval - (Date.now() - lastAdvance.current))
+    const scheduled = changes.current
+    const timer = window.setTimeout(() => {
+      if (changes.current !== scheduled) return
+      lastAdvance.current = Date.now()
+      // Stop with the last frame, rather than in an effect that could run after a newer change.
+      if (frame + 1 >= lastFrame) setPlaying(false)
+      onFrame(frame + 1)
+    }, delay)
+    return () => window.clearTimeout(timer)
+  }, [fps, frame, lastFrame, onFrame, playing, ready, speed])
 
   const seek = useCallback(
-    (nextFrame: number) => {
-      onFrame(Math.min(Math.max(nextFrame, 0), Math.max(frameCount - 1, 0)))
+    (next: number) => {
+      changes.current += 1
+      const target = Math.min(Math.max(Math.round(next), 0), lastFrame)
+      if (target >= lastFrame) setPlaying(false)
+      onFrame(target)
     },
-    [frameCount, onFrame],
+    [lastFrame, onFrame],
   )
 
-  const restart = useCallback(() => seek(0), [seek])
-  const previous = useCallback(() => seek(frame - 1), [frame, seek])
-  const next = useCallback(() => seek(frame + 1), [frame, seek])
-  const stopEpisode = useCallback(() => setPlaying(false), [])
-
-  const startChunk = useCallback((result: InferenceResult) => {
-    setChunk({
-      startFrame: result.start_frame,
-      length: result.chunk_size,
-      fps: result.fps,
-    })
-    setInferenceStep(0)
-    setInferencePlaying(true)
+  const pause = useCallback(() => {
+    changes.current += 1
+    setPlaying(false)
   }, [])
 
-  const clearChunk = useCallback(() => {
-    setChunk(null)
-    setInferenceStep(0)
-    setInferencePlaying(false)
-  }, [])
+  const play = useCallback(() => {
+    changes.current += 1
+    // A single-frame episode has nothing to play.
+    if (lastFrame === 0) return
+    if (frameRef.current >= lastFrame) onFrame(0)
+    lastAdvance.current = Date.now()
+    setPlaying(true)
+  }, [lastFrame, onFrame])
 
-  const setChunkStep = useCallback(
-    (step: number) => {
-      if (!chunk) return
-      setInferenceStep(Math.min(Math.max(step, 0), Math.max(chunk.length - 1, 0)))
+  const toggle = useCallback(() => {
+    if (playing) pause()
+    else play()
+  }, [pause, play, playing])
+
+  const step = useCallback(
+    (delta: number) => {
+      pause()
+      seek(frameRef.current + delta)
     },
-    [chunk],
+    [pause, seek],
   )
 
-  const reset = useCallback(
-    (resetSpeed = false) => {
-      setPlaying(false)
-      if (resetSpeed) setSpeed(1)
-      clearChunk()
-    },
-    [clearChunk],
-  )
-
-  const inferenceRange: [number, number] | undefined = chunk
-    ? [chunk.startFrame, chunk.startFrame + chunk.length]
-    : undefined
-
-  return {
-    playing,
-    speed,
-    inferenceStep,
-    inferencePlaying,
-    inferenceRange,
-    setPlaying,
-    setSpeed,
-    setInferencePlaying,
-    setChunkStep,
-    seek,
-    restart,
-    previous,
-    next,
-    stopEpisode,
-    startChunk,
-    clearChunk,
-    reset,
-  }
+  return { playing, play, pause, toggle, seek, step }
 }
