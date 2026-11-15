@@ -23,6 +23,8 @@ import {
 import { RecordingTimeline } from '../features/workspace/RecordingTimeline'
 import type { RobotPose } from '../features/workspace/RobotViewer'
 import { RobotViewer } from '../features/workspace/RobotViewer'
+import type { ShortcutAction } from '../features/workspace/shortcuts'
+import { withShortcut } from '../features/workspace/shortcuts'
 import { ShortcutsDialog } from '../features/workspace/ShortcutsDialog'
 import { TopBar } from '../features/workspace/TopBar'
 import { TransportBar } from '../features/workspace/TransportBar'
@@ -33,7 +35,6 @@ import { ArtifactLabel } from '../shared/ui/ArtifactLabel'
 import type { ChunkStart } from './useChunkReplay'
 import { useChunkReplay } from './useChunkReplay'
 import { useEpisodeData } from './useEpisodeData'
-import type { ShortcutAction } from './useKeyboardShortcuts'
 import { keepFocusOffButtons, useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { usePlayback } from './usePlayback'
 import { useProbes } from './useProbes'
@@ -381,7 +382,12 @@ export function Workspace({
             </h1>
             {episode.task && <p title={episode.task}>{episode.task}</p>}
             <div className={`segmented ${styles.viewSwitch}`} role="group" aria-label="Stage shows">
-              <button type="button" aria-pressed={!shown} onClick={showRecording}>
+              <button
+                type="button"
+                aria-pressed={!shown}
+                title={withShortcut('Show the recording', 'escape')}
+                onClick={showRecording}
+              >
                 Recording <span className="mono">· frame {frameIndex}</span>
               </button>
               <button

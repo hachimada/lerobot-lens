@@ -245,6 +245,7 @@ describe('TransportBar', () => {
       <TransportBar frame={30} frameCount={61} fps={30} playing={false} speed={1} {...handlers} />,
     )
     expect(screen.getByText('Frame 30 / 60')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Play' })).toHaveAttribute('title', 'Play (Space)')
     await user.click(screen.getByRole('button', { name: 'Play' }))
     await user.click(screen.getByRole('button', { name: 'Previous frame' }))
     await user.click(screen.getByRole('button', { name: 'Next frame' }))
@@ -316,6 +317,10 @@ describe('TopBar and shortcuts', () => {
     render(<ShortcutsDialog onClose={onClose} />)
     expect(screen.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeInTheDocument()
     expect(screen.getByText('Probe the policy at this frame')).toBeInTheDocument()
+    // Each row shows the keys of its actions, as the parser reads them.
+    expect(screen.getByText('Jump 10 frames or steps').parentElement).toHaveTextContent(
+      'Shift+←Shift+→',
+    )
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(onClose).toHaveBeenCalled()
   })

@@ -64,7 +64,7 @@ You can also select **Try the demo** to explore the bundled sample without downl
 | `Esc`          | Show the recording on the stage                                                      |
 | `[` / `]`      | Previous or next episode                                                             |
 | `I`            | Probe the policy at the current frame                                                |
-| `R`            | Play the selected chunk on the stage                                                 |
+| `R`            | Play or pause the selected chunk on the stage                                        |
 | `Delete`       | Remove the selected probe                                                            |
 | `?`            | Show all shortcuts                                                                   |
 
