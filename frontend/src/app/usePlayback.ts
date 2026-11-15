@@ -27,12 +27,7 @@ export function usePlayback({ frame, frameCount, fps, speed = 1, onFrame, ready 
   const changes = useRef(0)
 
   useEffect(() => {
-    if (!playing) return
-    if (frame >= lastFrame) {
-      setPlaying(false)
-      return
-    }
-    if (!ready) return
+    if (!playing || frame >= lastFrame || !ready) return
     // Count decode time against the frame interval so playback stays real-time when it can.
     const interval = 1000 / Math.max(1, fps) / speed
     const delay = Math.max(0, interval - (Date.now() - lastAdvance.current))
@@ -40,6 +35,8 @@ export function usePlayback({ frame, frameCount, fps, speed = 1, onFrame, ready 
     const timer = window.setTimeout(() => {
       if (changes.current !== scheduled) return
       lastAdvance.current = Date.now()
+      // Stop with the last frame, rather than in an effect that could run after a newer change.
+      if (frame + 1 >= lastFrame) setPlaying(false)
       onFrame(frame + 1)
     }, delay)
     return () => window.clearTimeout(timer)
@@ -48,7 +45,9 @@ export function usePlayback({ frame, frameCount, fps, speed = 1, onFrame, ready 
   const seek = useCallback(
     (next: number) => {
       changes.current += 1
-      onFrame(Math.min(Math.max(Math.round(next), 0), lastFrame))
+      const target = Math.min(Math.max(Math.round(next), 0), lastFrame)
+      if (target >= lastFrame) setPlaying(false)
+      onFrame(target)
     },
     [lastFrame, onFrame],
   )
@@ -60,6 +59,8 @@ export function usePlayback({ frame, frameCount, fps, speed = 1, onFrame, ready 
 
   const play = useCallback(() => {
     changes.current += 1
+    // A single-frame episode has nothing to play.
+    if (lastFrame === 0) return
     if (frameRef.current >= lastFrame) onFrame(0)
     lastAdvance.current = Date.now()
     setPlaying(true)

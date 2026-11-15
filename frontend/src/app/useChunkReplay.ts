@@ -33,6 +33,13 @@ function clampStep(step: number, steps: number): number {
   return Math.min(Math.max(Math.round(step), 0), steps - 1)
 }
 
+/** One chunk stops on its last step; playing through the episode decides at each step. */
+function settle(replay: ChunkReplay): ChunkReplay {
+  return replay.playing && !replay.through && replay.step >= replay.steps - 1
+    ? { ...replay, playing: false }
+    : replay
+}
+
 /**
  * Steps through predicted action chunks: one chunk to its end, or the chunks
  * through the episode, moving between them as the sequence decides.
@@ -45,10 +52,12 @@ export function useChunkReplay(stepsPerSecond: number, sequence: ChunkSequence) 
   const [replay, setReplay] = useState<ChunkReplay | null>(null)
   // The latest replay requested, ahead of React's render: a step timer that
   // fires after a newer change (leaving, pausing, seeking) must not undo it.
+  // Every change settles here, so no effect has to correct the state later.
   const latest = useRef<ChunkReplay | null>(null)
   const update = useCallback((next: ChunkReplay | null) => {
-    latest.current = next
-    setReplay(next)
+    const settled = next && settle(next)
+    latest.current = settled
+    setReplay(settled)
   }, [])
   const sequenceRef = useRef(sequence)
   useEffect(() => {
@@ -57,11 +66,6 @@ export function useChunkReplay(stepsPerSecond: number, sequence: ChunkSequence) 
 
   useEffect(() => {
     if (!replay?.playing) return
-    const atEnd = replay.step >= replay.steps - 1
-    if (atEnd && !replay.through) {
-      update({ ...replay, playing: false })
-      return
-    }
     const timer = window.setTimeout(
       () => {
         if (latest.current !== replay) return

@@ -91,4 +91,16 @@ describe('usePlayback', () => {
     expect(result.current.frame).toBe(7)
     expect(result.current.playing).toBe(false)
   })
+
+  it('stops when seeking to the last frame, and has nothing to play in one frame', () => {
+    const { result } = renderHook(() => usePlayer(10, 2))
+    act(() => result.current.play())
+    act(() => result.current.seek(99))
+    expect(result.current.frame).toBe(9)
+    expect(result.current.playing).toBe(false)
+
+    const single = renderHook(() => usePlayer(1))
+    act(() => single.result.current.play())
+    expect(single.result.current.playing).toBe(false)
+  })
 })
