@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -10,9 +11,23 @@ from ..schemas import EpisodeActions, EpisodeSummary, FrameData, InferResult
 from .media import image_data_url, tensor_list
 from .runtime import RuntimeSession
 
+# LeRobot shares one cached torchcodec VideoDecoder per video file across all
+# threads and datasets, and a decoder is not thread-safe. FastAPI serves frame
+# and inference requests on concurrent worker threads (and keeps running ones
+# the browser has aborted), so concurrent decodes of the same file crash the
+# process in the native AV1 decoder. Serialize every sample read process-wide.
+_SAMPLE_READ_LOCK = threading.Lock()
+
+# LeRobot's DEFAULT_STORAGE_FORMAT (parquet + mp4), kept literal so importing this
+# module does not import LeRobot. Other formats, such as Lance in v0.7, expose no
+# column access, so their recorded actions come from decoded samples read in
+# batches of this size; frame requests can take the decode lock between batches.
+_DEFAULT_STORAGE_FORMAT = "lerobot"
+_ACTION_READ_BATCH = 64
+
 
 def load_dataset(runtime: RuntimeSession) -> None:
-    """Load and index a LeRobot v0.6 dataset into a runtime session."""
+    """Load and index a LeRobot v0.7 dataset into a runtime session."""
 
     # Keep LeRobot lazy so demo mode and API startup do not import its full
     # dataset and video stack.
@@ -69,7 +84,7 @@ def _index_dataset(runtime: RuntimeSession) -> None:
         )
         cursor = start + length
 
-    first_sample = dataset[0]
+    first_sample = _sample(runtime, 0)
     state_key = _state_key(first_sample)
     first_action = tensor_list(first_sample["action"])
     features = getattr(meta, "features", {})
@@ -134,9 +149,7 @@ def episode_actions(runtime: RuntimeSession, episode: int) -> EpisodeActions:
         episode=episode,
         fps=runtime.summary.fps or 30,
         action_names=runtime.summary.action_names,
-        actions=[
-            tensor_list(runtime.dataset.hf_dataset[index]["action"]) for index in range(start, end)
-        ],
+        actions=_recorded_actions(runtime, start, end),
     )
 
 
@@ -145,7 +158,7 @@ def frame(runtime: RuntimeSession, episode: int, frame_index: int) -> FrameData:
     index = start + frame_index
     if index < start or index >= end:
         raise IndexError("Frame outside episode")
-    sample = runtime.dataset[index]
+    sample = _sample(runtime, index)
     images = {
         key: image_data_url(sample[key]) for key in runtime.summary.camera_keys if key in sample
     }
@@ -161,40 +174,33 @@ def frame(runtime: RuntimeSession, episode: int, frame_index: int) -> FrameData:
 
 def infer(runtime: RuntimeSession, episode: int, frame_index: int) -> InferResult:
     start, end = _episode_range(runtime, episode)
-    if start + frame_index < start or start + frame_index >= end:
+    index = start + frame_index
+    if index < start or index >= end:
         raise IndexError("Frame outside episode")
-    sample = runtime.dataset[start + frame_index]
-    observation: dict[str, Any] = {}
-    for key, value in sample.items():
-        if not key.startswith("observation."):
-            continue
-        tensor = value if isinstance(value, torch.Tensor) else torch.as_tensor(value)
-        observation[key] = tensor.unsqueeze(0).to(runtime.summary.device)
+
+    # Each request is an independent query at an arbitrary frame, so no policy
+    # or processor state from a previous request may leak into it.
+    runtime.policy.reset()
+    for processor in (runtime.preprocessor, runtime.postprocessor):
+        if processor is not None:
+            processor.reset()
 
     with torch.inference_mode():
-        batch = runtime.preprocessor(observation) if runtime.preprocessor else observation
-        if hasattr(runtime.policy, "predict_action_chunk"):
-            actions = runtime.policy.predict_action_chunk(batch)
-        else:
-            runtime.policy.reset()
-            chunk_size = int(getattr(runtime.policy.config, "chunk_size", 1))
-            actions = torch.stack(
-                [runtime.policy.select_action(batch) for _ in range(chunk_size)], dim=1
+        if _predicts_chunks_directly(runtime.policy):
+            actions = _action_tensor(
+                runtime.policy.predict_action_chunk(_policy_input(runtime, index))
             )
+        else:
+            actions = _select_action_chunk(runtime, start, index)
         if runtime.postprocessor:
             actions = runtime.postprocessor(actions)
 
     predicted = actions.detach().cpu().squeeze(0).numpy()
     if predicted.ndim == 1:
         predicted = predicted[None, :]
-    count = min(len(predicted), end - (start + frame_index))
+    count = min(len(predicted), end - index)
     predicted = predicted[:count]
-    ground_truth = np.asarray(
-        [
-            tensor_list(runtime.dataset[start + frame_index + offset]["action"])
-            for offset in range(count)
-        ]
-    )
+    ground_truth = np.asarray(_recorded_actions(runtime, index, index + count))
     return InferResult(
         episode=episode,
         start_frame=frame_index,
@@ -203,6 +209,85 @@ def infer(runtime: RuntimeSession, episode: int, frame_index: int) -> InferResul
         ground_truth_actions=ground_truth.tolist(),
         chunk_size=count,
     )
+
+
+def _predicts_chunks_directly(policy: Any) -> bool:
+    """Return whether ``predict_action_chunk`` works from the current observation alone.
+
+    LeRobot policies declare this contract through ``chunk_inference_spec``, which
+    rejects policies that need observation history or ``select_action``-only
+    preparation, such as Diffusion and Multi-Task DiT.
+    """
+    try:
+        policy.chunk_inference_spec()
+    except ValueError:
+        return False
+    return True
+
+
+def _select_action_chunk(runtime: RuntimeSession, start: int, index: int) -> torch.Tensor:
+    """Predict one chunk through ``select_action`` with the policy's observation history.
+
+    Frames before the episode start are omitted; the policy pads its history by
+    repeating the oldest observation, as it does during training.
+    """
+    policy = runtime.policy
+    n_obs_steps = max(1, int(getattr(policy.config, "n_obs_steps", None) or 1))
+    for history_index in range(max(start, index - n_obs_steps + 1), index):
+        policy.select_action(_policy_input(runtime, history_index))
+    # Feeding history may already have queued actions predicted from a partial
+    # history; drop them so the chunk is predicted from the requested frame.
+    policy.drop_queued_actions()
+    batch = _policy_input(runtime, index)
+    actions = [_action_tensor(policy.select_action(batch))]
+    while policy.count_queued_actions() > 0:
+        actions.append(_action_tensor(policy.select_action(batch)))
+    return torch.stack(actions, dim=1)
+
+
+def _policy_input(runtime: RuntimeSession, index: int) -> dict[str, Any]:
+    """Build a preprocessed single-frame policy input batch from a dataset sample."""
+    sample = _sample(runtime, index)
+    batch: dict[str, Any] = {}
+    for key, value in sample.items():
+        if not key.startswith("observation."):
+            continue
+        tensor = value if isinstance(value, torch.Tensor) else torch.as_tensor(value)
+        batch[key] = tensor.unsqueeze(0).to(runtime.summary.device)
+    # Language-conditioned policies such as SmolVLA and pi0 tokenize the task
+    # in their preprocessor and fail without it.
+    task = sample.get("task")
+    batch["task"] = [task if isinstance(task, str) else ""]
+    return cast(dict[str, Any], runtime.preprocessor(batch)) if runtime.preprocessor else batch
+
+
+def _action_tensor(output: Any) -> torch.Tensor:
+    """Extract actions from a policy output, which may also carry a prediction."""
+    if isinstance(output, dict):
+        return cast(torch.Tensor, output["action"])
+    return cast(torch.Tensor, output)
+
+
+def _recorded_actions(runtime: RuntimeSession, start: int, end: int) -> list[list[float]]:
+    """Read the recorded actions of dataset frames ``[start, end)``."""
+    dataset = runtime.dataset
+    if getattr(dataset.meta, "storage_format", _DEFAULT_STORAGE_FORMAT) == _DEFAULT_STORAGE_FORMAT:
+        # The default format reads the action column without decoding video.
+        table = dataset.hf_dataset
+        return [tensor_list(table[index]["action"]) for index in range(start, end)]
+    actions: list[list[float]] = []
+    for batch_start in range(start, end, _ACTION_READ_BATCH):
+        indices = list(range(batch_start, min(batch_start + _ACTION_READ_BATCH, end)))
+        with _SAMPLE_READ_LOCK:
+            samples = dataset.__getitems__(indices)
+        actions.extend(tensor_list(sample["action"]) for sample in samples)
+    return actions
+
+
+def _sample(runtime: RuntimeSession, index: int) -> dict[str, Any]:
+    """Read one decoded dataset sample under the process-wide decode lock."""
+    with _SAMPLE_READ_LOCK:
+        return cast(dict[str, Any], runtime.dataset[index])
 
 
 def _episode_range(runtime: RuntimeSession, episode: int) -> tuple[int, int]:
