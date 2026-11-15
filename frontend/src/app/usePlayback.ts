@@ -22,6 +22,9 @@ export function usePlayback({ frame, frameCount, fps, speed = 1, onFrame, ready 
   const frameRef = useRef(frame)
   frameRef.current = frame
   const lastAdvance = useRef(0)
+  // Bumped by every seek, play, and pause, so a frame timer scheduled before
+  // one of them cannot undo it when it fires ahead of the next render.
+  const changes = useRef(0)
 
   useEffect(() => {
     if (!playing) return
@@ -33,7 +36,9 @@ export function usePlayback({ frame, frameCount, fps, speed = 1, onFrame, ready 
     // Count decode time against the frame interval so playback stays real-time when it can.
     const interval = 1000 / Math.max(1, fps) / speed
     const delay = Math.max(0, interval - (Date.now() - lastAdvance.current))
+    const scheduled = changes.current
     const timer = window.setTimeout(() => {
+      if (changes.current !== scheduled) return
       lastAdvance.current = Date.now()
       onFrame(frame + 1)
     }, delay)
@@ -41,13 +46,20 @@ export function usePlayback({ frame, frameCount, fps, speed = 1, onFrame, ready 
   }, [fps, frame, lastFrame, onFrame, playing, ready, speed])
 
   const seek = useCallback(
-    (next: number) => onFrame(Math.min(Math.max(Math.round(next), 0), lastFrame)),
+    (next: number) => {
+      changes.current += 1
+      onFrame(Math.min(Math.max(Math.round(next), 0), lastFrame))
+    },
     [lastFrame, onFrame],
   )
 
-  const pause = useCallback(() => setPlaying(false), [])
+  const pause = useCallback(() => {
+    changes.current += 1
+    setPlaying(false)
+  }, [])
 
   const play = useCallback(() => {
+    changes.current += 1
     if (frameRef.current >= lastFrame) onFrame(0)
     lastAdvance.current = Date.now()
     setPlaying(true)

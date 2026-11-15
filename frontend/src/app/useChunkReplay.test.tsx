@@ -93,4 +93,21 @@ describe('useChunkReplay', () => {
     act(() => result.current.start('empty', 0))
     expect(result.current.replay?.steps).toBe(1)
   })
+
+  it('ignores a step timer that fires after playback changed, before it re-rendered', () => {
+    const { result } = renderHook(() => useChunkReplay(10, noSequence))
+    act(() => result.current.start('p', 5))
+    // Leaving and pausing are not undone by a step already scheduled for the old state.
+    act(() => {
+      result.current.exit()
+      vi.advanceTimersByTime(150)
+    })
+    expect(result.current.replay).toBeNull()
+    act(() => result.current.start('p', 5))
+    act(() => {
+      result.current.pause()
+      vi.advanceTimersByTime(150)
+    })
+    expect(result.current.replay).toMatchObject({ step: 0, playing: false })
+  })
 })

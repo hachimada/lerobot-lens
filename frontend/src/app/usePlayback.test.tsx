@@ -75,4 +75,20 @@ describe('usePlayback', () => {
     await advance(10)
     expect(result.current.frame).toBe(1)
   })
+
+  it('ignores a frame timer that fires after a seek or pause, before it re-rendered', () => {
+    const { result } = renderHook(() => usePlayer(10, 2))
+    act(() => result.current.play())
+    act(() => {
+      result.current.seek(7)
+      vi.advanceTimersByTime(150)
+    })
+    expect(result.current.frame).toBe(7)
+    act(() => {
+      result.current.pause()
+      vi.advanceTimersByTime(150)
+    })
+    expect(result.current.frame).toBe(7)
+    expect(result.current.playing).toBe(false)
+  })
 })

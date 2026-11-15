@@ -43,6 +43,13 @@ function clampStep(step: number, steps: number): number {
  */
 export function useChunkReplay(stepsPerSecond: number, sequence: ChunkSequence) {
   const [replay, setReplay] = useState<ChunkReplay | null>(null)
+  // The latest replay requested, ahead of React's render: a step timer that
+  // fires after a newer change (leaving, pausing, seeking) must not undo it.
+  const latest = useRef<ChunkReplay | null>(null)
+  const update = useCallback((next: ChunkReplay | null) => {
+    latest.current = next
+    setReplay(next)
+  }, [])
   const sequenceRef = useRef(sequence)
   useEffect(() => {
     sequenceRef.current = sequence
@@ -52,28 +59,29 @@ export function useChunkReplay(stepsPerSecond: number, sequence: ChunkSequence) 
     if (!replay?.playing) return
     const atEnd = replay.step >= replay.steps - 1
     if (atEnd && !replay.through) {
-      setReplay({ ...replay, playing: false })
+      update({ ...replay, playing: false })
       return
     }
     const timer = window.setTimeout(
       () => {
+        if (latest.current !== replay) return
         if (!replay.through) {
-          setReplay({ ...replay, step: replay.step + 1 })
+          update({ ...replay, step: replay.step + 1 })
           return
         }
         // Through the episode, every step may hand over to another chunk.
         const next = sequenceRef.current.next(replay.probeId, replay.step)
         if (!next) {
-          setReplay({ ...replay, playing: false })
+          update({ ...replay, playing: false })
           return
         }
         if (next.probeId !== replay.probeId) sequenceRef.current.onChange(next.probeId)
-        setReplay({ ...next, playing: true, through: true })
+        update({ ...next, playing: true, through: true })
       },
       1000 / Math.max(1, stepsPerSecond),
     )
     return () => window.clearTimeout(timer)
-  }, [replay, stepsPerSecond])
+  }, [replay, stepsPerSecond, update])
 
   const start = useCallback(
     (
@@ -82,36 +90,40 @@ export function useChunkReplay(stepsPerSecond: number, sequence: ChunkSequence) 
       { play = true, step = 0, through = false }: StartOptions = {},
     ) => {
       const total = Math.max(1, steps)
-      setReplay({ probeId, step: clampStep(step, total), steps: total, playing: play, through })
+      update({ probeId, step: clampStep(step, total), steps: total, playing: play, through })
     },
-    [],
+    [update],
   )
 
-  const exit = useCallback(() => setReplay(null), [])
+  const exit = useCallback(() => update(null), [update])
 
   /** Play this chunk alone, or on through the episode. */
-  const play = useCallback((through: boolean) => {
-    setReplay(
-      (current) =>
-        current && {
-          ...current,
-          // Playing one chunk again from its last step starts it over.
-          step: !through && current.step >= current.steps - 1 ? 0 : current.step,
-          playing: true,
-          through,
-        },
-    )
-  }, [])
+  const play = useCallback(
+    (through: boolean) => {
+      const current = latest.current
+      if (!current) return
+      update({
+        ...current,
+        // Playing one chunk again from its last step starts it over.
+        step: !through && current.step >= current.steps - 1 ? 0 : current.step,
+        playing: true,
+        through,
+      })
+    },
+    [update],
+  )
 
   const pause = useCallback(() => {
-    setReplay((current) => current && { ...current, playing: false })
-  }, [])
+    if (latest.current) update({ ...latest.current, playing: false })
+  }, [update])
 
-  const seekStep = useCallback((step: number) => {
-    setReplay(
-      (current) => current && { ...current, playing: false, step: clampStep(step, current.steps) },
-    )
-  }, [])
+  const seekStep = useCallback(
+    (step: number) => {
+      const current = latest.current
+      if (current) update({ ...current, playing: false, step: clampStep(step, current.steps) })
+    },
+    [update],
+  )
 
   return { replay, start, exit, play, pause, seekStep }
 }
