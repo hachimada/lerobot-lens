@@ -9,7 +9,7 @@ import { frameRange } from '../features/workspace/labels'
 import { ProbeInspector } from '../features/workspace/ProbeInspector'
 import { ProbeToolbar } from '../features/workspace/ProbeToolbar'
 import { ProbeTrack } from '../features/workspace/ProbeTrack'
-import type { Probe, ProbeView } from '../features/workspace/probes'
+import type { Probe, ProbeChunk, ProbeView } from '../features/workspace/probes'
 import {
   chunkAt,
   episodeRanges,
@@ -32,8 +32,7 @@ import { api } from '../shared/api/client'
 import type { Episode, SessionSummary } from '../shared/api/types'
 import { padEpisode } from '../shared/lib/format'
 import { ArtifactLabel } from '../shared/ui/ArtifactLabel'
-import type { ChunkStart } from './useChunkReplay'
-import { useChunkReplay } from './useChunkReplay'
+import { chunkOnStage, nextFrame, useChunkReplay } from './useChunkReplay'
 import { useEpisodeData } from './useEpisodeData'
 import { keepFocusOffButtons, useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { usePlayback } from './usePlayback'
@@ -54,7 +53,6 @@ interface Props {
 interface OpenOptions {
   play?: boolean
   step?: number
-  through?: boolean
 }
 
 /**
@@ -88,7 +86,7 @@ export function Workspace({
   const frameCount = episode.length
 
   const probes = useProbes(session.id)
-  const { probes: allProbes, selectedId, select, scan } = probes
+  const { probes: allProbes, select, scan } = probes
 
   // This episode's chunks in time order. Equal starts keep inference order, so
   // the later inference wins in chunkAt.
@@ -101,19 +99,15 @@ export function Workspace({
     [allProbes, episodeIndex],
   )
 
-  /** Playing the chunks through the episode: what to show after a step (see chunkAt). */
-  function nextChunk(probeId: string, step: number): ChunkStart | null {
-    const current = episodeChunks.find((chunk) => chunk.id === probeId)
-    const found = current && chunkAt(episodeChunks, current.startFrame + step + 1)
-    return found ? { probeId: found.chunk.id, step: found.step, steps: found.chunk.steps } : null
-  }
-  const chunk = useChunkReplay(fps * speed, { next: nextChunk, onChange: select })
+  const chunk = useChunkReplay(fps * speed, episodeChunks)
 
-  // What the stage shows: a chunk of this episode being replayed, or else the recording.
-  const shown = episodeChunks.find((item) => item.id === chunk.replay?.probeId) ?? null
+  // What the stage shows: a chunk of this episode at a step, or else the recording.
+  const onStage = chunkOnStage(chunk.replay, episodeChunks)
+  const shown = onStage?.chunk ?? null
+  const shownId = shown?.id ?? null
   const replay = shown ? chunk.replay : null
-  const shownStep = replay?.step ?? 0
-  const stepFrame = shown ? shown.startFrame + shownStep : undefined
+  const shownStep = onStage?.step ?? 0
+  const stepFrame = replay?.frame
   // While a chunk is on the stage, the cameras hold the frame the policy observed.
   const stageFrame = shown ? shown.startFrame : frameIndex
 
@@ -167,7 +161,9 @@ export function Workspace({
     return summaries
   }, [allProbes, dimensions, episodeIndex, episodeProbes])
 
-  // The user picks the selected probe; playing all chunks moves it along, the recording never does.
+  // The chunk on the stage is the selected one, so playing all chunks moves the selection
+  // along; when the stage returns to the recording, the selection stays (see showRecording).
+  const selectedId = shown?.id ?? probes.selectedId
   const selectedProbe = episodeProbes.find((probe) => probe.id === selectedId) ?? null
 
   const predictedAction = shown?.result.predicted_actions[shownStep]
@@ -193,27 +189,28 @@ export function Workspace({
   )
 
   const { pause, seek, step: stepFrames, toggle } = playback
-  const {
-    start: startReplay,
-    exit: showRecording,
-    play: playReplay,
-    pause: pauseReplay,
-    seekStep,
-  } = chunk
+  const { open: openReplay, exit: exitReplay, pause: pauseReplay } = chunk
 
   // A frame that fails to decode would otherwise stall frame-locked playback.
   useEffect(() => {
     if (error) pause()
   }, [error, pause])
 
-  /** Select a probe and put it on the stage, paused at its first step unless told otherwise. */
+  /** Show the recording on the stage, keeping the chunk that was there selected. */
+  const showRecording = useCallback(() => {
+    if (shownId) select(shownId)
+    exitReplay()
+  }, [exitReplay, select, shownId])
+
+  /** Select a chunk and put it on the stage alone, paused at its first step unless told otherwise. */
   const openProbe = useCallback(
-    (probe: { id: string; steps: number }, options?: OpenOptions) => {
+    (probe: ProbeChunk, { play = false, step = 0 }: OpenOptions = {}) => {
       pause()
       select(probe.id)
-      startReplay(probe.id, probe.steps, { play: false, ...options })
+      const clamped = Math.min(Math.max(Math.round(step), 0), probe.steps - 1)
+      openReplay(probe.id, probe.startFrame + clamped, play)
     },
-    [pause, select, startReplay],
+    [openReplay, pause, select],
   )
 
   const selectEpisode = useCallback(
@@ -228,32 +225,38 @@ export function Workspace({
     [clearError, pause, select, showRecording],
   )
 
-  /** The chunk player's own button, and R: this chunk alone. */
+  /** The chunk player's own button, and R: the chunk on the stage, or the selected one, alone. */
   function toggleChunk() {
-    if (replay?.playing) pauseReplay()
-    else if (replay) playReplay(false)
-    else if (selectedProbe) openProbe(selectedProbe, { play: true })
+    if (replay?.playing) return pauseReplay()
+    const target = shown ?? selectedProbe
+    // Playing a chunk again from its last step starts it over.
+    if (target)
+      openProbe(target, { play: true, step: shownStep < target.steps - 1 ? shownStep : 0 })
   }
 
   /**
-   * The chunks through the episode: on from the chunk on the stage, or from
+   * The chunks through the episode: on from the frame on the stage, or from
    * the start when the stage shows the recording or playback reached the end.
    */
   function playAllChunks() {
-    if (replay?.playing && replay.through) return pauseReplay()
-    if (replay && nextChunk(replay.probeId, replay.step)) return playReplay(true)
+    if (replay?.playing && replay.pinned === null) return pauseReplay()
+    pause()
+    if (replay && nextFrame({ ...replay, pinned: null }, episodeChunks) !== null) {
+      return openReplay(null, replay.frame, true)
+    }
     const first = chunkAt(episodeChunks, 0)
-    if (first) openProbe(first.chunk, { play: true, step: first.step, through: true })
+    if (first) openReplay(null, first.chunk.startFrame + first.step, true)
   }
 
+  /** Steps of the chunk on the stage, or else the selected chunk; seeking pins that chunk. */
   function seekChunkStep(step: number) {
-    if (!shown && selectedProbe) openProbe(selectedProbe)
-    seekStep(step)
+    const target = shown ?? selectedProbe
+    if (target) openProbe(target, { step })
   }
 
   function removeProbe(id: string) {
-    // The stage returns to the recording when its chunk goes away.
-    if (id === shown?.id) showRecording()
+    // The stage returns to the recording when the chunk it plays alone goes away.
+    if (id === replay?.pinned) exitReplay()
     probes.removeProbe(id)
   }
 
@@ -284,8 +287,8 @@ export function Workspace({
   /** Charts share both timelines: inside the chunk on the stage they move its step. */
   function seekFromChart(frame: number) {
     const step = shown ? stepAt(shown, frame) : null
-    if (step === null) seekRecording(frame)
-    else seekStep(step)
+    if (shown && step !== null) openProbe(shown, { step })
+    else seekRecording(frame)
   }
 
   function toggleRecording() {
@@ -300,12 +303,12 @@ export function Workspace({
 
   /** Playback keys drive whichever timeline is on the stage. */
   function moveStage(delta: number) {
-    if (replay) seekStep(replay.step + delta)
+    if (shown) openProbe(shown, { step: shownStep + delta })
     else stepFrames(delta)
   }
 
   function jumpStage(toEnd: boolean) {
-    if (replay) return seekStep(toEnd ? replay.steps - 1 : 0)
+    if (shown) return openProbe(shown, { step: toEnd ? shown.steps - 1 : 0 })
     pause()
     seek(toEnd ? frameCount - 1 : 0)
   }
@@ -314,7 +317,7 @@ export function Workspace({
     switch (action) {
       case 'toggle-play':
         if (!replay) return toggle()
-        return replay.through ? playAllChunks() : toggleChunk()
+        return replay.pinned === null ? playAllChunks() : toggleChunk()
       case 'previous-frame':
         return moveStage(-1)
       case 'next-frame':
@@ -522,7 +525,7 @@ export function Workspace({
                   active={!!shown}
                   step={shownStep}
                   playing={!!replay?.playing}
-                  playingAll={!!replay?.playing && replay.through}
+                  playingAll={!!replay?.playing && replay.pinned === null}
                   onTogglePlay={toggleChunk}
                   onPlayAll={playAllChunks}
                   onSeekStep={seekChunkStep}
