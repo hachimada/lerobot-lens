@@ -27,6 +27,7 @@ async def test_create_demo_stores_ready_session() -> None:
     assert summary.demo is True
     assert summary.episode_count == 1
     assert summary.has_urdf is True
+    assert summary.action_chunk_size == 48
     assert runtime.dataset is not None
     assert runtime.urdf_root is not None
 

@@ -16,7 +16,7 @@ from ..schemas import (
     SessionSummary,
 )
 from . import lerobot
-from .demo_dataset import DemoDataset
+from .demo_dataset import DEMO_CHUNK_SIZE, DemoDataset
 from .device import choose_device
 from .robot_catalog import get_bundled_robot
 from .runtime import RuntimeSession
@@ -90,6 +90,7 @@ class SessionManager:
                 "action_names": list(dataset.action_names),
                 "dataset_angle_unit": "degrees",
                 "has_urdf": True,
+                "action_chunk_size": DEMO_CHUNK_SIZE,
             }
         )
 

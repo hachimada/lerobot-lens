@@ -13,6 +13,7 @@ DEMO_ASSETS_ROOT = Path(__file__).parents[1] / "resources" / "demo"
 DEMO_METADATA = json.loads((DEMO_ASSETS_ROOT / "metadata.json").read_text())
 DEMO_NOISE_STD_RATIO = 0.03
 DEMO_NOISE_MIN_STD = 1e-3
+DEMO_CHUNK_SIZE = 48
 
 
 @lru_cache(maxsize=64)
@@ -74,7 +75,7 @@ class DemoDataset:
             actions=self.action_values.astype(float).tolist(),
         )
 
-    def infer(self, episode: int, frame: int, chunk_size: int = 48) -> InferResult:
+    def infer(self, episode: int, frame: int, chunk_size: int = DEMO_CHUNK_SIZE) -> InferResult:
         if episode != 0:
             raise IndexError("Demo contains only episode 0")
         frame = max(0, min(frame, self.length - 1))

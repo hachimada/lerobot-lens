@@ -37,6 +37,8 @@ class SessionSummary(BaseModel):
     dataset_angle_unit: Literal["degrees", "radians"] | None = None
     has_urdf: bool = False
     demo: bool = False
+    # Actions one inference returns, once a policy is loaded.
+    action_chunk_size: int | None = None
 
 
 class BundledRobotSummary(BaseModel):

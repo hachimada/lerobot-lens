@@ -134,6 +134,7 @@ def load_policy(runtime: RuntimeSession) -> None:
     runtime.policy = policy_class.from_pretrained(runtime.config.policy, config=config)
     runtime.policy.to(runtime.summary.device)
     runtime.policy.eval()
+    runtime.summary.action_chunk_size = _action_chunk_size(runtime.policy)
     runtime.preprocessor, runtime.postprocessor = make_pre_post_processors(
         policy_cfg=config,
         pretrained_path=runtime.config.policy,
@@ -223,6 +224,16 @@ def _predicts_chunks_directly(policy: Any) -> bool:
     except ValueError:
         return False
     return True
+
+
+def _action_chunk_size(policy: Any) -> int | None:
+    """Actions one ``infer`` call returns: the declared prediction horizon for direct chunk
+    policies, or the steps ``select_action`` queues per prediction for the others."""
+    try:
+        return int(policy.chunk_inference_spec().prediction_steps)
+    except ValueError:
+        steps = getattr(policy.config, "n_action_steps", None)
+        return int(steps) if steps else None
 
 
 def _select_action_chunk(runtime: RuntimeSession, start: int, index: int) -> torch.Tensor:
