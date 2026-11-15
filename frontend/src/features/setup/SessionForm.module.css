@@ -1,0 +1,100 @@
+.form {
+  display: grid;
+  gap: 16px;
+}
+
+.fields {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.robotRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 168px;
+  gap: 8px;
+}
+
+.builtIn {
+  padding-right: 6px;
+}
+
+.angleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: -6px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.angleLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.help {
+  display: inline-grid;
+  color: var(--text-subtle);
+  cursor: help;
+}
+
+.advanced {
+  display: grid;
+  gap: 12px;
+}
+
+.advancedToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.advancedToggle svg {
+  transition: transform 120ms ease;
+}
+
+.advancedToggle[aria-expanded='true'] svg {
+  transform: rotate(90deg);
+}
+
+.advancedFields {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.actions :global(.btn-primary) {
+  flex: 1;
+  height: 40px;
+}
+
+@media (max-width: 560px) {
+  .advancedFields {
+    grid-template-columns: 1fr;
+  }
+}

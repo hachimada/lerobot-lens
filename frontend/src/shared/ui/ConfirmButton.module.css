@@ -1,0 +1,15 @@
+.group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.confirm {
+  border-color: transparent;
+  background: var(--bad);
+  color: #fff;
+}
+
+.confirm:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bad) 85%, #000);
+}

@@ -1,0 +1,106 @@
+.player {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-height: 40px;
+  padding: 6px 6px 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.active {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+/* Playing the chunks through the episode; pressed while it plays. */
+.playAll {
+  margin-right: 4px;
+  background: var(--surface);
+}
+
+.playAll[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.summary {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 12px;
+}
+
+.level {
+  color: var(--level);
+  font-weight: 700;
+}
+
+.mae {
+  color: var(--text-subtle);
+}
+
+.mae strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.header {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+
+.timeline {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: 10px;
+}
+
+.play {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.step {
+  flex: none;
+  min-width: 150px;
+  font-size: 12px;
+}
+
+.step em {
+  color: var(--text-subtle);
+  font-style: normal;
+}
+
+.slider {
+  flex: 1;
+  min-width: 100px;
+  accent-color: var(--accent);
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-subtle);
+  font-size: 12px;
+}

@@ -18,6 +18,8 @@ export interface SessionSummary {
   dataset_angle_unit: 'degrees' | 'radians' | null
   has_urdf: boolean
   demo: boolean
+  /** Actions one inference returns, once a policy is loaded. */
+  action_chunk_size?: number | null
 }
 
 export interface Episode {

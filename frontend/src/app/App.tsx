@@ -1,196 +1,83 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { api } from '../shared/api/client'
-import type { Episode } from '../shared/api/types'
-import { EvaluationWorkspace } from './EvaluationWorkspace'
-import { OnboardingScreen } from './OnboardingScreen'
-import { useEpisodeData } from './useEpisodeData'
-import { useInference } from './useInference'
-import { usePlayback } from './usePlayback'
-import { useWorkspaceSession } from './useWorkspaceSession'
+import { useCallback, useState } from 'react'
+
+import { SessionDialog } from '../features/setup/SessionDialog'
+import type { SessionCreate } from '../shared/api/types'
+import { SetupScreen } from './SetupScreen'
+import { useRecentSessions } from './useRecentSessions'
+import { useTheme } from './useTheme'
+import { DEMO_CONFIGURATION, useWorkspaceSession } from './useWorkspaceSession'
+import { Workspace } from './Workspace'
 
 export default function App() {
-  const [episodeIndex, setEpisodeIndex] = useState(0)
-  const [frameIndex, setFrameIndex] = useState(0)
-  const [selectedCameraKey, setSelectedCameraKey] = useState('')
-
+  const { theme, toggleTheme } = useTheme()
+  const { recents, remember, forget } = useRecentSessions()
   const {
+    session,
     episodes,
-    selectedEpisode,
-    frameData,
-    episodeActions,
-    error: episodeError,
-    installWorkspace: installEpisodeWorkspace,
-    reset: resetEpisodeData,
-    clearError: clearEpisodeError,
-  } = useEpisodeData({ episodeIndex, frameIndex })
+    configuration,
+    loading,
+    error,
+    loadSession,
+    cancelLoading,
+    closeSession,
+    clearError,
+  } = useWorkspaceSession()
+  const [dialogOpen, setDialogOpen] = useState(false)
 
-  const resetEvaluationRef = useRef<() => void>(() => undefined)
-  const resetEvaluationState = useCallback(() => resetEvaluationRef.current(), [])
-
-  const installWorkspaceEpisodes = useCallback(
-    (sessionId: string, available: Episode[]) => {
-      resetEvaluationState()
-      setEpisodeIndex(available[0].index)
-      installEpisodeWorkspace(sessionId, available)
+  const open = useCallback(
+    async (payload: SessionCreate) => {
+      if (await loadSession(payload)) {
+        remember(payload)
+        setDialogOpen(false)
+      }
     },
-    [installEpisodeWorkspace, resetEvaluationState],
+    [loadSession, remember],
   )
 
-  const clearWorkspaceData = useCallback(() => {
-    resetEpisodeData()
-    resetEvaluationState()
-  }, [resetEpisodeData, resetEvaluationState])
-
-  const { session, configuration, loading, settingsError, loadSession, closeWorkspace } =
-    useWorkspaceSession({
-      onWorkspaceCleared: clearWorkspaceData,
-      onWorkspaceReady: installWorkspaceEpisodes,
-    })
-
-  const fps = session?.fps ?? 30
-
-  const {
-    playing,
-    speed,
-    inferenceStep,
-    inferencePlaying,
-    inferenceRange,
-    setPlaying,
-    setSpeed,
-    setInferencePlaying,
-    setChunkStep,
-    seek,
-    restart: restartPlayback,
-    previous,
-    next,
-    stopEpisode,
-    startChunk,
-    clearChunk,
-    reset: resetPlayback,
-  } = usePlayback({
-    frame: frameIndex,
-    frameCount: selectedEpisode?.length ?? 1,
-    episodeFps: fps,
-    onFrame: setFrameIndex,
-  })
-
-  const handleInferenceStart = useCallback(() => {
-    stopEpisode()
-    clearEpisodeError()
-  }, [clearEpisodeError, stopEpisode])
-
-  const {
-    inference,
-    inferring,
-    error: inferenceError,
-    run: runInference,
-    clear: clearInference,
-    reset: resetInference,
-  } = useInference({
-    onStart: handleInferenceStart,
-    onResult: startChunk,
-    onClear: clearChunk,
-  })
-
-  useEffect(() => {
-    resetEvaluationRef.current = () => {
-      setEpisodeIndex(0)
-      setFrameIndex(0)
-      setSelectedCameraKey('')
-      resetPlayback()
-      resetInference()
-    }
-  }, [resetInference, resetPlayback])
-
-  const returnToOnboarding = () => {
-    closeWorkspace()
-    resetPlayback(true)
-  }
-
-  const runSelectedInference = () => {
-    if (!session) return
-    void runInference(session.id, episodeIndex, frameIndex)
-  }
-
-  const selectEpisode = (episode: number) => {
-    stopEpisode()
-    setEpisodeIndex(episode)
-    setFrameIndex(0)
-    clearInference()
-  }
-
-  const selectFrame = (frame: number) => {
-    seek(frame)
-    clearInference()
-  }
-
-  const restart = () => {
-    restartPlayback()
-    clearInference()
-  }
-
-  const previousFrame = () => {
-    previous()
-    clearInference()
-  }
-
-  const nextFrame = () => {
-    next()
-    clearInference()
-  }
-
-  if (!session || session.status !== 'ready') {
+  if (!session) {
     return (
-      <OnboardingScreen
+      <SetupScreen
         configuration={configuration}
+        recents={recents}
         loading={loading}
-        error={settingsError}
-        onLoad={(payload) => {
-          void loadSession(payload, false)
-        }}
+        error={error}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onOpen={(payload) => void open(payload)}
+        onDemo={() => void open(DEMO_CONFIGURATION)}
+        onCancelLoading={cancelLoading}
+        onForgetRecent={forget}
       />
     )
   }
 
   return (
-    <EvaluationWorkspace
-      session={session}
-      configuration={configuration}
-      loading={loading}
-      settingsError={settingsError}
-      episodes={episodes}
-      selectedEpisode={selectedEpisode}
-      episodeIndex={episodeIndex}
-      frameIndex={frameIndex}
-      frameData={frameData}
-      episodeActions={episodeActions}
-      playing={playing}
-      speed={speed}
-      selectedCameraKey={selectedCameraKey}
-      inference={inference}
-      inferenceStep={inferenceStep}
-      inferencePlaying={inferencePlaying}
-      inferenceRange={inferenceRange}
-      inferring={inferring}
-      error={inferenceError ?? episodeError}
-      fps={fps}
-      urdfUrl={api.urdfUrl(session.id)}
-      onClose={returnToOnboarding}
-      onLoad={(payload) => {
-        void loadSession(payload, true)
-      }}
-      onEpisode={selectEpisode}
-      onFrame={selectFrame}
-      onRestart={restart}
-      onPreviousFrame={previousFrame}
-      onNextFrame={nextFrame}
-      onPlaying={setPlaying}
-      onSpeed={setSpeed}
-      onCamera={setSelectedCameraKey}
-      onInfer={runSelectedInference}
-      onClearInference={clearInference}
-      onInferenceStep={setChunkStep}
-      onInferencePlaying={setInferencePlaying}
-    />
+    <>
+      <Workspace
+        key={session.id}
+        session={session}
+        episodes={episodes}
+        theme={theme}
+        shortcutsEnabled={!dialogOpen}
+        onToggleTheme={toggleTheme}
+        onHome={closeSession}
+        onEditSession={() => {
+          clearError()
+          setDialogOpen(true)
+        }}
+      />
+      {dialogOpen && (
+        <SessionDialog
+          configuration={configuration}
+          recents={recents}
+          loading={loading}
+          error={error}
+          onSubmit={(payload) => void open(payload)}
+          onCancelLoading={cancelLoading}
+          onForgetRecent={forget}
+          onClose={() => setDialogOpen(false)}
+        />
+      )}
+    </>
   )
 }

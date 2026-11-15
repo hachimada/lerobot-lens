@@ -1,0 +1,119 @@
+.toolbar {
+  display: grid;
+  gap: 8px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+}
+
+/* Every probe control shares one size and outline. */
+.control {
+  background: var(--surface-2);
+}
+
+.clear:hover:not(:disabled) {
+  color: var(--bad);
+}
+
+/* Before the first probe: the call to action sits where the chunks will appear. */
+.empty {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+/* Starting a run looks like the recording's play button: solid and neutral, not the accent. */
+.run {
+  border-color: transparent;
+  background: var(--text);
+  color: var(--bg);
+}
+
+.run:hover:not(:disabled) {
+  background: var(--text);
+  opacity: 0.88;
+}
+
+.alternative {
+  color: var(--text-subtle);
+  font-size: 12px;
+}
+
+.overlap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.overlapSelect {
+  width: auto;
+  height: 30px;
+  padding: 0 4px 0 8px;
+  font: 500 12px var(--font-mono);
+  cursor: pointer;
+}
+
+.plan {
+  color: var(--text-subtle);
+}
+
+.scanProgress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.bar {
+  width: 140px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 200ms ease;
+}
+
+.noPolicy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.error {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.error :global(.icon-btn) {
+  width: 22px;
+  height: 22px;
+  color: inherit;
+}

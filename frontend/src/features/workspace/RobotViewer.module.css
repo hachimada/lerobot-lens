@@ -1,83 +1,56 @@
 .viewer {
-  height: 100%;
   position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--viewer-bg);
 }
 
 .viewer canvas {
   display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
 }
 
-.viewerMode {
+.viewer canvas:active {
+  cursor: grabbing;
+}
+
+.reset {
   position: absolute;
-  z-index: 3;
-  top: 14px;
-  right: 14px;
-  background: #f8f7f2d9;
-  border: 1px solid #bab8b0;
-  padding: 7px 9px;
-  font: 600 9px 'JetBrains Mono';
-  letter-spacing: 1px;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  color: var(--text-muted);
 }
 
-.viewerMode span {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  background: #6da84d;
-  border-radius: 50%;
-  margin-right: 5px;
+.reset:hover {
+  color: var(--text);
 }
 
-.viewerMode.inference span {
-  background: var(--accent);
-  box-shadow: 0 0 0 3px #f3c9c3;
-}
-
-.viewerHint {
+.hint {
   position: absolute;
-  bottom: 11px;
-  right: 13px;
-  font: 500 9px 'JetBrains Mono';
-  color: #777b73;
+  right: 10px;
+  bottom: 8px;
+  color: var(--text-subtle);
+  font-size: 11px;
+  pointer-events: none;
 }
 
-.viewerError {
+.error {
   position: absolute;
-  z-index: 4;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: min(620px, 80%);
-  padding: 14px 16px;
-  background: #fff0edee;
-  border: 1px solid #df7468;
-  color: #862d24;
-  font: 500 11px/1.55 'JetBrains Mono';
-}
-
-.viewerError strong,
-.viewerError span {
-  display: block;
-}
-
-.viewerError strong {
-  margin-bottom: 5px;
-  letter-spacing: 1px;
-}
-
-.axisMark {
-  position: absolute;
-  bottom: 14px;
-  left: 14px;
-  font: 600 9px 'JetBrains Mono';
-  color: #777;
-}
-
-.axisMark i {
-  display: inline-block;
-  width: 1px;
-  height: 18px;
-  background: #db5141;
-  margin-right: 6px;
-  vertical-align: bottom;
+  inset: auto 10px 10px;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
 }
