@@ -37,15 +37,41 @@ class FakeDataset:
 
 
 def test_lerobot_v07_api_surface_is_available() -> None:
-    """Fail offline when the installed LeRobot API no longer matches our adapter."""
+    """Fail offline when the installed LeRobot API no longer matches our adapter.
+
+    The inference tests use fake policies and processors, so this test is what
+    catches a LeRobot release that renames or removes a method the adapter calls.
+    """
     from lerobot.configs.policies import PreTrainedConfig
     from lerobot.datasets.lerobot_dataset import LeRobotDataset
     from lerobot.policies.factory import get_policy_class, make_pre_post_processors
+    from lerobot.policies.pretrained import PreTrainedPolicy
+    from lerobot.processor import PolicyProcessorPipeline
 
     assert callable(LeRobotDataset)
     assert callable(PreTrainedConfig.from_pretrained)
     assert callable(get_policy_class)
     assert callable(make_pre_post_processors)
+    for method in (
+        "from_pretrained",
+        "reset",
+        "chunk_inference_spec",
+        "predict_action_chunk",
+        "select_action",
+        "drop_queued_actions",
+        "count_queued_actions",
+    ):
+        assert callable(getattr(PreTrainedPolicy, method, None)), method
+    assert callable(getattr(PolicyProcessorPipeline, "reset", None))
+
+
+def test_lerobot_rejects_direct_chunks_for_history_policies_with_value_error() -> None:
+    """The adapter relies on this ValueError to route Diffusion-style policies via select_action."""
+    from lerobot.policies.pretrained import PreTrainedPolicy
+
+    history_policy = SimpleNamespace(config=SimpleNamespace(n_obs_steps=2))
+    with pytest.raises(ValueError, match="n_obs_steps"):
+        PreTrainedPolicy.chunk_inference_spec(history_policy)
 
 
 def make_samples() -> list[dict[str, Any]]:
