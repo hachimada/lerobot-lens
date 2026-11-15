@@ -4,18 +4,13 @@ import { Search } from 'lucide-react'
 import type { Episode } from '../../shared/api/types'
 import { padEpisode } from '../../shared/lib/format'
 import { matchesEpisode } from './labels'
-import type { ErrorLevel } from './probes'
 import styles from './EpisodeBrowser.module.css'
-
-export interface EpisodeProbeSummary {
-  count: number
-  level: ErrorLevel
-}
 
 interface Props {
   episodes: Episode[]
   selectedIndex: number
-  summaries: Map<number, EpisodeProbeSummary>
+  /** Probes kept per episode, which mark the episodes already probed. */
+  probeCounts: Map<number, number>
   onSelect: (index: number) => void
 }
 
@@ -23,7 +18,7 @@ interface Props {
 export const EpisodeBrowser = memo(function EpisodeBrowser({
   episodes,
   selectedIndex,
-  summaries,
+  probeCounts,
   onSelect,
 }: Props) {
   const [query, setQuery] = useState('')
@@ -65,7 +60,7 @@ export const EpisodeBrowser = memo(function EpisodeBrowser({
       </div>
       <ul ref={list} className={styles.list}>
         {visible.map((episode) => {
-          const summary = summaries.get(episode.index)
+          const probes = probeCounts.get(episode.index)
           const selected = episode.index === selectedIndex
           return (
             <li key={episode.index}>
@@ -81,12 +76,12 @@ export const EpisodeBrowser = memo(function EpisodeBrowser({
                   {showTasks && episode.task && <span className={styles.task}>{episode.task}</span>}
                   <span className={styles.duration}>{episode.duration.toFixed(1)}s</span>
                 </span>
-                {summary && (
+                {probes && (
                   <span
-                    className={`${styles.badge} level-${summary.level}`}
-                    title={`${summary.count} probe${summary.count === 1 ? '' : 's'}`}
+                    className={`count-pill ${styles.probeCount}`}
+                    title={`${probes} probe${probes === 1 ? '' : 's'}`}
                   >
-                    {summary.count}
+                    {probes}
                   </span>
                 )}
               </button>
