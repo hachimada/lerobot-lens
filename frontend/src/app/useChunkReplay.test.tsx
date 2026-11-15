@@ -1,12 +1,11 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { useChunkReplay } from './useChunkReplay'
+import type { ChunkReplay } from './useChunkReplay'
+import { chunkOnStage, nextFrame, useChunkReplay } from './useChunkReplay'
 
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
-
-const noSequence = { next: () => null, onChange: () => {} }
 
 async function advance(ms: number, slice = 50) {
   for (let elapsed = 0; elapsed < ms; elapsed += slice) {
@@ -16,98 +15,79 @@ async function advance(ms: number, slice = 50) {
   }
 }
 
+// Chunk a covers frames 0–4, b frames 3–7, and c frames 12–13 after a gap.
+const a = { id: 'a', startFrame: 0, endFrame: 5 }
+const b = { id: 'b', startFrame: 3, endFrame: 8 }
+const c = { id: 'c', startFrame: 12, endFrame: 14 }
+const chunks = [a, b, c]
+
+function at(frame: number, pinned: string | null = null): ChunkReplay {
+  return { frame, playing: true, pinned }
+}
+
+describe('chunkOnStage and nextFrame', () => {
+  it('plays one chunk to its last step', () => {
+    expect(chunkOnStage(at(4, 'a'), chunks)).toEqual({ chunk: a, step: 4 })
+    expect(nextFrame(at(3, 'a'), chunks)).toBe(4)
+    expect(nextFrame(at(4, 'a'), chunks)).toBeNull()
+    expect(chunkOnStage(at(6, 'a'), chunks)).toBeNull()
+    expect(nextFrame(at(0, 'missing'), chunks)).toBeNull()
+    expect(chunkOnStage(null, chunks)).toBeNull()
+  })
+
+  it('plays through the episode from the latest observation, skipping gaps', () => {
+    expect(chunkOnStage(at(2), chunks)).toEqual({ chunk: a, step: 2 })
+    // Chunk b, inferred at frame 3, takes over from a there.
+    expect(chunkOnStage(at(3), chunks)).toEqual({ chunk: b, step: 0 })
+    expect(nextFrame(at(7), chunks)).toBe(12)
+    expect(nextFrame(at(13), chunks)).toBeNull()
+    expect(chunkOnStage(at(9), chunks)).toBeNull()
+  })
+})
+
 describe('useChunkReplay', () => {
-  it('plays a chunk to its last step and holds it there', async () => {
-    const { result } = renderHook(() => useChunkReplay(10, noSequence))
-    act(() => result.current.start('p', 3))
-    expect(result.current.replay).toEqual({
-      probeId: 'p',
-      step: 0,
-      steps: 3,
-      playing: true,
-      through: false,
-    })
+  it('plays a pinned chunk to its last step and stops there', async () => {
+    const { result } = renderHook(() => useChunkReplay(10, chunks))
+    act(() => result.current.open('a', 2, true))
+    expect(result.current.replay).toEqual({ frame: 2, playing: true, pinned: 'a' })
     await advance(100)
-    expect(result.current.replay?.step).toBe(1)
-    await advance(400)
-    expect(result.current.replay).toMatchObject({ step: 2, playing: false })
-
-    // Playing the chunk again from its end starts over.
-    act(() => result.current.play(false))
-    expect(result.current.replay).toMatchObject({ step: 0, playing: true })
-    act(() => result.current.pause())
-    expect(result.current.replay).toMatchObject({ step: 0, playing: false })
+    expect(result.current.replay?.frame).toBe(3)
+    await advance(500)
+    expect(result.current.replay).toEqual({ frame: 4, playing: false, pinned: 'a' })
   })
 
-  it('lets the sequence decide each step, moving between chunks', async () => {
-    const onChange = vi.fn()
-    // a plays steps 0–1, then b takes over at its step 1 and ends.
-    const next = vi.fn((probeId: string, step: number) => {
-      if (probeId === 'a' && step === 0) return { probeId: 'a', step: 1, steps: 3 }
-      if (probeId === 'a') return { probeId: 'b', step: 1, steps: 3 }
-      return step < 2 ? { probeId: 'b', step: step + 1, steps: 3 } : null
-    })
-    const { result } = renderHook(() => useChunkReplay(10, { next, onChange }))
-    act(() => result.current.start('a', 3, { through: true }))
-    await advance(100)
-    expect(result.current.replay).toMatchObject({ probeId: 'a', step: 1, through: true })
-    expect(onChange).not.toHaveBeenCalled()
-    await advance(100)
-    expect(next).toHaveBeenLastCalledWith('a', 1)
-    expect(onChange).toHaveBeenCalledWith('b')
-    expect(result.current.replay).toEqual({
-      probeId: 'b',
-      step: 1,
-      steps: 3,
-      playing: true,
-      through: true,
-    })
-    // Nothing follows b's last step, so playback ends there.
+  it('plays through the chunks, jumping the gap, and can be paused and left', async () => {
+    const { result } = renderHook(() => useChunkReplay(10, chunks))
+    act(() => result.current.open(null, 6, true))
+    await advance(200)
+    expect(result.current.replay?.frame).toBe(12)
+    await advance(500)
+    expect(result.current.replay).toEqual({ frame: 13, playing: false, pinned: null })
+
+    act(() => result.current.open(null, 0, true))
+    act(() => result.current.pause())
     await advance(300)
-    expect(result.current.replay).toMatchObject({ probeId: 'b', step: 2, playing: false })
-    expect(onChange).toHaveBeenCalledTimes(1)
-
-    // Pausing keeps the mode; playing one chunk leaves it.
-    act(() => result.current.play(true))
-    expect(result.current.replay).toMatchObject({ step: 2, playing: true, through: true })
-    act(() => result.current.pause())
-    act(() => result.current.play(false))
-    expect(result.current.replay).toMatchObject({ step: 0, playing: true, through: false })
-  })
-
-  it('seeks within the chunk, pausing, and can be left', () => {
-    const { result } = renderHook(() => useChunkReplay(10, noSequence))
-    act(() => result.current.play(true))
-    act(() => result.current.pause())
-    act(() => result.current.seekStep(1))
-    expect(result.current.replay).toBeNull()
-
-    act(() => result.current.start('p', 5, { play: false }))
-    act(() => result.current.seekStep(99))
-    expect(result.current.replay).toMatchObject({ step: 4, playing: false })
-    act(() => result.current.seekStep(-3))
-    expect(result.current.replay?.step).toBe(0)
+    expect(result.current.replay).toEqual({ frame: 0, playing: false, pinned: null })
     act(() => result.current.exit())
     expect(result.current.replay).toBeNull()
-
-    act(() => result.current.start('empty', 0))
-    expect(result.current.replay?.steps).toBe(1)
+    act(() => result.current.pause())
+    expect(result.current.replay).toBeNull()
   })
 
-  it('ignores a step timer that fires after playback changed, before it re-rendered', () => {
-    const { result } = renderHook(() => useChunkReplay(10, noSequence))
-    act(() => result.current.start('p', 5))
-    // Leaving and pausing are not undone by a step already scheduled for the old state.
+  it('ignores a frame timer that fires after playback changed, before it re-rendered', () => {
+    const { result } = renderHook(() => useChunkReplay(10, chunks))
+    act(() => result.current.open('a', 0, true))
+    // Leaving and pausing are not undone by a frame already scheduled for the old state.
     act(() => {
       result.current.exit()
       vi.advanceTimersByTime(150)
     })
     expect(result.current.replay).toBeNull()
-    act(() => result.current.start('p', 5))
+    act(() => result.current.open('a', 0, true))
     act(() => {
       result.current.pause()
       vi.advanceTimersByTime(150)
     })
-    expect(result.current.replay).toMatchObject({ step: 0, playing: false })
+    expect(result.current.replay).toEqual({ frame: 0, playing: false, pinned: 'a' })
   })
 })
