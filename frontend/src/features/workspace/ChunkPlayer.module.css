@@ -22,7 +22,7 @@
 
 .playAll[aria-pressed='true'] {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .summary {
@@ -96,7 +96,7 @@
 .slider {
   flex: 1;
   min-width: 100px;
-  accent-color: var(--accent);
+  accent-color: var(--accent-text);
 }
 
 .hint {

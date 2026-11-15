@@ -92,7 +92,7 @@
 }
 
 .item[aria-current='true'] .index {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .meta {

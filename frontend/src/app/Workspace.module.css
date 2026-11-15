@@ -55,7 +55,7 @@
 }
 
 .episodeHeader h1 span {
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 500;
 }
 
@@ -76,7 +76,7 @@
 
 /* The probe on the stage takes the accent, like the active probe panel. */
 .viewSwitch > button:last-child[aria-pressed='true'] {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .stage {
@@ -139,7 +139,7 @@
 }
 
 .predictedTag {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .predictedTag::before {

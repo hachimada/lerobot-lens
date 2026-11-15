@@ -55,7 +55,7 @@
 
 .predictedSwatch {
   border-top-style: solid;
-  border-top-color: var(--accent);
+  border-top-color: var(--accent-text);
 }
 
 .rows {
@@ -95,7 +95,7 @@
 }
 
 .label .predicted {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .plot {
@@ -129,14 +129,14 @@
 
 .probeLine {
   fill: none;
-  stroke: var(--accent);
+  stroke: var(--accent-text);
   stroke-opacity: 0.38;
   stroke-width: 1.5;
 }
 
 .focusLine {
   fill: none;
-  stroke: var(--accent);
+  stroke: var(--accent-text);
   stroke-width: 2.25;
 }
 
