@@ -47,7 +47,8 @@ test('opens the bundled demo, probes a frame, and scans the episode', async ({ p
   await expect(page.getByText('· 6 chunks, every 38 frames')).toBeVisible()
   await page.getByRole('button', { name: /Probe whole episode/ }).click()
   const probes = page.getByRole('region', { name: /Probes in this episode/ })
-  await expect(probes.getByRole('listitem')).toHaveCount(7)
+  // Six inferences on CPU can outlast the default 5-second assertion timeout on CI runners.
+  await expect(probes.getByRole('listitem')).toHaveCount(7, { timeout: 30_000 })
 
   // Clicking a chunk on the probe track inspects it; the recording keeps its position.
   const track = page.getByRole('group', { name: 'Probe chunks' })
