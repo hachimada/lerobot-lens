@@ -18,6 +18,13 @@ from .runtime import RuntimeSession
 # process in the native AV1 decoder. Serialize every sample read process-wide.
 _SAMPLE_READ_LOCK = threading.Lock()
 
+# LeRobot's DEFAULT_STORAGE_FORMAT (parquet + mp4), kept literal so importing this
+# module does not import LeRobot. Other formats, such as Lance in v0.7, expose no
+# column access, so their recorded actions come from decoded samples read in
+# batches of this size; frame requests can take the decode lock between batches.
+_DEFAULT_STORAGE_FORMAT = "lerobot"
+_ACTION_READ_BATCH = 64
+
 
 def load_dataset(runtime: RuntimeSession) -> None:
     """Load and index a LeRobot v0.7 dataset into a runtime session."""
@@ -142,9 +149,7 @@ def episode_actions(runtime: RuntimeSession, episode: int) -> EpisodeActions:
         episode=episode,
         fps=runtime.summary.fps or 30,
         action_names=runtime.summary.action_names,
-        actions=[
-            tensor_list(runtime.dataset.hf_dataset[index]["action"]) for index in range(start, end)
-        ],
+        actions=_recorded_actions(runtime, start, end),
     )
 
 
@@ -195,9 +200,7 @@ def infer(runtime: RuntimeSession, episode: int, frame_index: int) -> InferResul
         predicted = predicted[None, :]
     count = min(len(predicted), end - index)
     predicted = predicted[:count]
-    ground_truth = np.asarray(
-        [tensor_list(_sample(runtime, index + offset)["action"]) for offset in range(count)]
-    )
+    ground_truth = np.asarray(_recorded_actions(runtime, index, index + count))
     return InferResult(
         episode=episode,
         start_frame=frame_index,
@@ -263,6 +266,22 @@ def _action_tensor(output: Any) -> torch.Tensor:
     if isinstance(output, dict):
         return cast(torch.Tensor, output["action"])
     return cast(torch.Tensor, output)
+
+
+def _recorded_actions(runtime: RuntimeSession, start: int, end: int) -> list[list[float]]:
+    """Read the recorded actions of dataset frames ``[start, end)``."""
+    dataset = runtime.dataset
+    if getattr(dataset.meta, "storage_format", _DEFAULT_STORAGE_FORMAT) == _DEFAULT_STORAGE_FORMAT:
+        # The default format reads the action column without decoding video.
+        table = dataset.hf_dataset
+        return [tensor_list(table[index]["action"]) for index in range(start, end)]
+    actions: list[list[float]] = []
+    for batch_start in range(start, end, _ACTION_READ_BATCH):
+        indices = list(range(batch_start, min(batch_start + _ACTION_READ_BATCH, end)))
+        with _SAMPLE_READ_LOCK:
+            samples = dataset.__getitems__(indices)
+        actions.extend(tensor_list(sample["action"]) for sample in samples)
+    return actions
 
 
 def _sample(runtime: RuntimeSession, index: int) -> dict[str, Any]:

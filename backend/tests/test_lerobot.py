@@ -5,7 +5,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, NoReturn
 
 import numpy as np
 import pytest
@@ -31,9 +31,32 @@ class FakeDataset:
         self.samples = samples
         self.hf_dataset = FakeTable(samples)
         self.meta = meta
+        self.reads: list[int] = []
+
+    def __getitem__(self, index: int) -> dict[str, Any]:
+        self.reads.append(index)
+        return self.samples[index]
+
+
+class FakeLanceDataset:
+    """A non-default storage format, which serves samples only and has no hf_dataset."""
+
+    def __init__(self, samples: list[dict[str, Any]]) -> None:
+        self.samples = samples
+        self.meta = SimpleNamespace(storage_format="lance")
+        self.batches: list[list[int]] = []
+
+    @property
+    def hf_dataset(self) -> NoReturn:
+        raise AttributeError("hf_dataset is not available for storage_format='lance'")
 
     def __getitem__(self, index: int) -> dict[str, Any]:
         return self.samples[index]
+
+    def __getitems__(self, indices: list[int]) -> list[dict[str, Any]]:
+        assert lerobot._SAMPLE_READ_LOCK.locked()
+        self.batches.append(indices)
+        return [self.samples[index] for index in indices]
 
 
 def test_lerobot_v07_api_surface_is_available() -> None:
@@ -44,11 +67,14 @@ def test_lerobot_v07_api_surface_is_available() -> None:
     """
     from lerobot.configs.policies import PreTrainedConfig
     from lerobot.datasets.lerobot_dataset import LeRobotDataset
+    from lerobot.datasets.storage import DEFAULT_STORAGE_FORMAT
     from lerobot.policies.factory import get_policy_class, make_pre_post_processors
     from lerobot.policies.pretrained import PreTrainedPolicy
     from lerobot.processor import PolicyProcessorPipeline
 
     assert callable(LeRobotDataset)
+    assert callable(getattr(LeRobotDataset, "__getitems__", None))
+    assert DEFAULT_STORAGE_FORMAT == lerobot._DEFAULT_STORAGE_FORMAT
     assert callable(PreTrainedConfig.from_pretrained)
     assert callable(get_policy_class)
     assert callable(make_pre_post_processors)
@@ -188,6 +214,8 @@ def test_episode_actions_and_frame_convert_dataset_values() -> None:
 
     with pytest.raises(IndexError, match="Episode not found"):
         lerobot.episode_actions(runtime, 9)
+    # Recorded actions come from the action column; only the frame decoded a sample.
+    assert runtime.dataset.reads == [1]
     with pytest.raises(IndexError, match="Frame outside episode"):
         lerobot.frame(runtime, 0, -1)
     with pytest.raises(IndexError, match="Frame outside episode"):
@@ -225,6 +253,21 @@ def test_concurrent_frame_requests_never_read_samples_in_parallel() -> None:
 
     assert [frame.frame for frame in frames] == [index % 4 for index in range(32)]
     assert dataset.max_active == 1
+
+
+def test_episode_actions_read_other_storage_formats_in_locked_batches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(lerobot, "_ACTION_READ_BATCH", 3)
+    dataset = FakeLanceDataset(make_samples())
+    runtime = runtime_session()
+    runtime.dataset = dataset
+    runtime.episode_ranges = {0: (0, 4)}
+
+    actions = lerobot.episode_actions(runtime, 0)
+
+    assert actions.actions == [[1.0, 2.0], [2.0, 3.0], [3.0, 4.0], [4.0, 5.0]]
+    assert dataset.batches == [[0, 1, 2], [3]]
 
 
 def test_frame_uses_timestamp_fallback() -> None:
@@ -337,6 +380,8 @@ def test_infer_predicts_chunk_directly_and_truncates_at_episode_end() -> None:
     assert result.predicted_actions == [[11.0, 12.0]]
     assert result.ground_truth_actions == [[2.0, 3.0]]
     assert result.chunk_size == 1
+    # Only the policy input decodes a sample; ground truth reads the action column.
+    assert runtime.dataset.reads == [1]
     assert (policy.reset_count, preprocessor.reset_count, postprocessor.reset_count) == (1, 1, 1)
     [raw_batch] = preprocessor.inputs
     assert set(raw_batch) == {"observation.state", "observation.images.front", "task"}

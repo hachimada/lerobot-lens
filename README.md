@@ -16,7 +16,7 @@ On training data, it helps verify whether the policy can reproduce the demonstra
 
 ## Features
 
-- Load LeRobot datasets and policies from the Hugging Face Hub or local paths
+- Load LeRobot datasets and policies from the Hugging Face Hub or local paths, including local datasets in LeRobot's Lance storage format
 - Play recorded episodes
 - Infer and replay an action chunk from any frame in a LeRobot dataset
 - Compare recorded actions (dashed, full episode) with predicted actions (solid, action chunk) for each joint
