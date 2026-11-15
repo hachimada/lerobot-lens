@@ -84,7 +84,7 @@
 
 .steps li[data-status='active'] .stepIcon {
   border-color: transparent;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .message,

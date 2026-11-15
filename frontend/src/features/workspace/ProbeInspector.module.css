@@ -52,7 +52,7 @@
 }
 
 .empty > svg {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .empty strong {

@@ -25,7 +25,7 @@
 
 .eyebrow {
   margin: 0 0 14px;
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.2px;
@@ -39,7 +39,7 @@
 }
 
 .intro h1 em {
-  color: var(--accent);
+  color: var(--accent-text);
   font-style: normal;
 }
 
@@ -65,7 +65,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .features strong {
