@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test'
 
 test('opens the bundled demo, probes a frame, and scans the episode', async ({ page }) => {
+  // The scenario runs the demo policy on CPU and, on CI runners, renders WebGL without a GPU.
+  test.setTimeout(90_000)
   await page.goto('/')
   const sessionResponsePromise = page.waitForResponse(
     (response) =>
