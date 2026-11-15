@@ -34,6 +34,8 @@ interface SceneHandles {
   grid: THREE.GridHelper | null
   ghostMaterial: THREE.MeshStandardMaterial
   fit: () => void
+  /** Draw the scene on the next animation frame; frames are only drawn when asked for. */
+  invalidate: () => void
 }
 
 function cssColor(name: string, fallback: string): string {
@@ -95,6 +97,20 @@ export function RobotViewer({ url, assetsUrl, pose, ghost, mapping, angleUnit, t
     controls.minDistance = 0.15
     controls.maxDistance = 6
 
+    // Render on demand rather than every display frame: an idle viewer costs nothing.
+    let frame = 0
+    const draw = () => {
+      frame = 0
+      // While the camera eases after a drag, this update moves it again, and the
+      // controls' change event asks for the next frame until it settles.
+      controls.update()
+      renderer.render(scene, camera)
+    }
+    const invalidate = () => {
+      if (!frame) frame = requestAnimationFrame(draw)
+    }
+    controls.addEventListener('change', invalidate)
+
     scene.add(new THREE.HemisphereLight('#ffffff', '#5d6470', 2.2))
     const key = new THREE.DirectionalLight('#ffffff', 2.6)
     key.position.set(2, 3, 2)
@@ -142,6 +158,7 @@ export function RobotViewer({ url, assetsUrl, pose, ghost, mapping, angleUnit, t
         .toArray()
         .map((value) => value.toFixed(3))
         .join(',')
+      invalidate()
     }
 
     const buildGhost = () => {
@@ -161,10 +178,12 @@ export function RobotViewer({ url, assetsUrl, pose, ghost, mapping, angleUnit, t
       ghostRobot.current = clone
     }
 
-    handles.current = { scene, floor, grid: null, ghostMaterial, fit }
+    handles.current = { scene, floor, grid: null, ghostMaterial, fit, invalidate }
 
     const manager = new THREE.LoadingManager()
-    // Meshes stream in after the URDF parses; rebuild the ghost and reframe once they land.
+    // Meshes stream in after the URDF parses: draw each as it lands, then rebuild
+    // the ghost and reframe once they all have.
+    manager.onProgress = invalidate
     manager.onLoad = () => {
       buildGhost()
       fit()
@@ -192,21 +211,15 @@ export function RobotViewer({ url, assetsUrl, pose, ghost, mapping, angleUnit, t
       renderer.setSize(clientWidth, clientHeight)
       camera.aspect = clientWidth / Math.max(1, clientHeight)
       camera.updateProjectionMatrix()
+      invalidate()
     }
     const observer = new ResizeObserver(resize)
     observer.observe(element)
     resize()
 
-    let animation = 0
-    const render = () => {
-      controls.update()
-      renderer.render(scene, camera)
-      animation = requestAnimationFrame(render)
-    }
-    render()
-
     return () => {
-      cancelAnimationFrame(animation)
+      cancelAnimationFrame(frame)
+      controls.removeEventListener('change', invalidate)
       observer.disconnect()
       controls.dispose()
       renderer.dispose()
@@ -230,6 +243,7 @@ export function RobotViewer({ url, assetsUrl, pose, ghost, mapping, angleUnit, t
     }
     current.grid = makeGrid()
     current.scene.add(current.grid)
+    current.invalidate()
   }, [theme, url, assetsUrl])
 
   useEffect(() => {
@@ -255,6 +269,7 @@ export function RobotViewer({ url, assetsUrl, pose, ghost, mapping, angleUnit, t
       shadow.visible = !!ghost
       if (ghost) applyPose(shadow, ghost, mapping, angleUnit)
     }
+    handles.current?.invalidate()
   }, [pose, ghost, mapping, angleUnit, loadedRevision])
 
   return (
