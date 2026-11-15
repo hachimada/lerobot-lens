@@ -2,19 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { CameraGrid } from '../features/workspace/CameraGrid'
 import { ChunkPlayer } from '../features/workspace/ChunkPlayer'
-import type { EpisodeProbeSummary } from '../features/workspace/EpisodeBrowser'
 import { EpisodeBrowser } from '../features/workspace/EpisodeBrowser'
 import { JointCharts } from '../features/workspace/JointCharts'
 import { frameRange } from '../features/workspace/labels'
 import { ProbeInspector } from '../features/workspace/ProbeInspector'
 import { ProbeToolbar } from '../features/workspace/ProbeToolbar'
 import { ProbeTrack } from '../features/workspace/ProbeTrack'
-import type { Probe, ProbeChunk, ProbeView } from '../features/workspace/probes'
+import type { ProbeChunk, ProbeView } from '../features/workspace/probes'
 import {
   chunkAt,
   episodeRanges,
-  errorLevel,
-  probeMetrics,
   scanFrames,
   stepAt,
   toChunk,
@@ -138,28 +135,13 @@ export function Workspace({
     return episodeChunks.map((item) => toProbeView(item, ranges))
   }, [dimensions, episodeChunks, recordedActions])
 
-  const episodeSummaries = useMemo(() => {
-    const grouped = new Map<number, Probe[]>()
-    for (const probe of allProbes) {
-      const group = grouped.get(probe.episode)
-      if (group) group.push(probe)
-      else grouped.set(probe.episode, [probe])
-    }
-    const summaries = new Map<number, EpisodeProbeSummary>()
-    for (const [index, group] of grouped) {
-      // The open episode reuses its views; the others have only their probes' recorded actions.
-      let errors: number[]
-      if (index === episodeIndex) {
-        errors = episodeProbes.map((probe) => probe.metrics.normalizedError)
-      } else {
-        const ranges = episodeRanges(group, null, dimensions)
-        errors = group.map((probe) => probeMetrics(probe.result, ranges).normalizedError)
-      }
-      const mean = errors.reduce((sum, value) => sum + value, 0) / errors.length
-      summaries.set(index, { count: errors.length, level: errorLevel(mean) })
-    }
-    return summaries
-  }, [allProbes, dimensions, episodeIndex, episodeProbes])
+  // The episode list counts each episode's probes. Error levels stay with the open
+  // episode, the only one whose recorded actions are loaded to normalize them (#6).
+  const probeCounts = useMemo(() => {
+    const counts = new Map<number, number>()
+    for (const probe of allProbes) counts.set(probe.episode, (counts.get(probe.episode) ?? 0) + 1)
+    return counts
+  }, [allProbes])
 
   // The chunk on the stage is the selected one, so playing all chunks moves the selection
   // along; when the stage returns to the recording, the selection stays (see showRecording).
@@ -372,7 +354,7 @@ export function Workspace({
             <EpisodeBrowser
               episodes={episodes}
               selectedIndex={episodeIndex}
-              summaries={episodeSummaries}
+              probeCounts={probeCounts}
               onSelect={selectEpisode}
             />
           </div>

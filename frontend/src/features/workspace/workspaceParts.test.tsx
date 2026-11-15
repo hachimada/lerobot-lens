@@ -47,20 +47,22 @@ describe('EpisodeBrowser', () => {
     { index: 12, length: 20, duration: 2, task: 'place cube' },
   ]
 
-  it('filters, marks the selection and probe summaries, and selects episodes', async () => {
+  it('filters, marks the selection and probed episodes, and selects episodes', async () => {
     const onSelect = vi.fn()
     const user = userEvent.setup()
     render(
       <EpisodeBrowser
         episodes={episodes}
         selectedIndex={12}
-        summaries={new Map([[12, { count: 3, level: 'poor' }]])}
+        probeCounts={new Map([[12, 3]])}
         onSelect={onSelect}
       />,
     )
     expect(screen.getByRole('button', { name: /#012/ })).toHaveAttribute('aria-current', 'true')
-    // Clicking an episode leaves focus where it was, so Space still plays.
-    expect(screen.getByTitle('3 probes')).toHaveTextContent('3')
+    // A probed episode shows how many probes it keeps, without an error level.
+    const count = screen.getByTitle('3 probes')
+    expect(count).toHaveTextContent('3')
+    expect(count.className).not.toMatch(/level-/)
     expect(screen.getByText('place cube')).toBeInTheDocument()
 
     await user.type(screen.getByRole('searchbox', { name: 'Filter episodes' }), 'pick')
@@ -78,7 +80,7 @@ describe('EpisodeBrowser', () => {
       <EpisodeBrowser
         episodes={episodes.map((episode) => ({ ...episode, task: 'same task' }))}
         selectedIndex={0}
-        summaries={new Map([[0, { count: 1, level: 'good' }]])}
+        probeCounts={new Map([[0, 1]])}
         onSelect={vi.fn()}
       />,
     )
