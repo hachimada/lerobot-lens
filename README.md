@@ -9,7 +9,7 @@ LeRobot Lens visualizes how a policy responds to observations from a LeRobot dat
 
 On training data, it helps verify whether the policy can reproduce the demonstrated behavior. On unseen data, it provides a quick qualitative check of whether the policy's response appears reasonable.
 
-![LeRobot Lens screenshot](docs/assets/LeRobotLens.png)
+![LeRobot Lens playing the predicted action chunks across an episode](docs/assets/LeRobotLens.webp)
 
 > [!IMPORTANT]
 > LeRobot Lens is not a simulator. It does not perform closed-loop rollouts and therefore cannot evaluate grasping, contact, collisions, or task success. It is an offline policy inspection tool for examining responses to recorded observations before testing on a robot or in simulation.
